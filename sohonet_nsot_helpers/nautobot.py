@@ -1,57 +1,36 @@
 import re
 from nautobot_golden_config.models import FUNC_MAPPER
 
+def _compliance_include(obj):
+    included_lines = []
+    matchers = [re.compile(pattern) for pattern in obj.rule.custom_field_data.get("compliance_include")]
+    for line in obj.actual.splitlines():
+        if any(matcher.search(line) for matcher in matchers):
+            included_lines.append(line)
 
+    return included_lines
 
 
 def sohonet_custom_compliance(obj):
     ''' Custom compliance function for use with nautobot golden config
 
+        Custom field 'compliance_include' can be set in rules within the Nautobot UI.
+        This should be a list of python regexs, only config lines matching these regexes will be
+
+
         At the moment, this is used for compliance of interface configurations, and filters the configs
         so that only the interface description is being managed.
 
-        This is a hacky first pass intended to be developed further, along the lines of
-        https://github.com/joewesch/nautobot_golden_config_custom_compliance so we can define
-        includes/exclude lines in the compliance rule within the nautobot UI
-
+        Based on https://github.com/joewesch/nautobot_golden_config_custom_compliance
     '''
 
+    # Filter included lines only from actual config
+    compliance_include = obj.rule.custom_field_data.get("compliance_include")
+    if compliance_include and isinstance(compliance_include, list):
+        included_lines = _compliance_include(obj)
+        obj.actual = '\n'.join(included_lines)
 
-    # Modify with actual logic, this would always presume compliant.
-    compliance_int = 1
-    compliance = True
-    ordered = True
-    missing = ""
-    extra = ""
-
-    INTERFACE_PATTERN = re.compile("^interface")
-    DESCRIPTION_PATTERN = re.compile("^\s+description")
-
-    print('TESTING !!!!!!!')
-    print(obj.rule)
-    print(obj.device.platform.slug)
-
-    if obj.rule.feature.name == 'interfaces' and obj.device.platform.slug == 'arista_eos':
-        filtered_config = []
-        for line in obj.actual.splitlines():
-            interface_match = INTERFACE_PATTERN.search(line)
-            description_match = DESCRIPTION_PATTERN.search(line)
-            if interface_match or description_match:
-                filtered_config.append(line)
-        obj.actual = '\n'.join(filtered_config)
-
-        compliance_method = FUNC_MAPPER['cli']
-        print('SOHONET CUSTOM COMPLIANCE !!!!!!!!!!!!!!')
-        compliance_details = compliance_method(obj)
-        print(compliance_details)
-        return compliance_details
-
-
-
-    return {
-        "compliance": compliance,
-        "compliance_int": compliance_int,
-        "ordered": ordered,
-        "missing": missing,
-        "extra": extra,
-    }
+    # Run compliance method with filtered actual configuration
+    compliance_method = FUNC_MAPPER['cli']
+    compliance_details = compliance_method(obj)
+    return compliance_details
