@@ -1,5 +1,4 @@
 import re
-from nautobot_golden_config.models import FUNC_MAPPER
 
 
 def compliance_include(compliance_include, actual_config):
@@ -24,6 +23,7 @@ def sohonet_custom_compliance(obj):
 
         Based on https://github.com/joewesch/nautobot_golden_config_custom_compliance
     '''
+    from nautobot_golden_config.models import FUNC_MAPPER
 
     # Filter included lines only from actual config
     compliance_include = obj.rule.custom_field_data.get("compliance_include")
