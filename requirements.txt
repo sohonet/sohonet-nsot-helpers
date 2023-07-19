@@ -1,3 +1,4 @@
 napalm
 netaddr
 netmiko
+netutils
