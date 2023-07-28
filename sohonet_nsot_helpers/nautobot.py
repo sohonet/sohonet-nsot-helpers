@@ -38,14 +38,18 @@ def sohonet_custom_compliance(obj):
     # Filter included lines only from actual config
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
     if compliance_include_patterns and isinstance(compliance_include_patterns, list):
-        included_lines = compliance_include(compliance_include_patterns, obj.actual)
-        obj.actual = "\n".join(included_lines)
+        included_lines_actual = compliance_include(compliance_include_patterns, obj.actual)
+        included_lines_intended = compliance_include(compliance_include_patterns, obj.intended)
+        obj.actual = "\n".join(included_lines_actual)
+        obj.intended = "\n".join(included_lines_intended)
 
     # Filter out excluded lines only from actual config
     compliance_exclude_patterns = obj.rule.custom_field_data.get("compliance_exclude")
     if compliance_exclude_patterns and isinstance(compliance_exclude_patterns, list):
-        included_lines = compliance_exclude(compliance_exclude_patterns, obj.actual)
-        obj.actual = "\n".join(included_lines)
+        included_lines_actual = compliance_exclude(compliance_exclude_patterns, obj.actual)
+        included_lines_intended = compliance_exclude(compliance_exclude_patterns, obj.intended)
+        obj.actual = "\n".join(included_lines_actual)
+        obj.intended = "\n".join(included_lines_intended)
 
     # Run compliance method with filtered actual configuration
     compliance_method = FUNC_MAPPER["cli"]
