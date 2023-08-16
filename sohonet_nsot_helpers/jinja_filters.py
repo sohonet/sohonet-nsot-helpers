@@ -47,6 +47,9 @@ def mrv_physical_interfaces_to_config(ports):
             else:
                 portlist.append(int(port['name']))
 
+    if not portlist:
+        return ''
+
     portlist_config = vlanlist_to_config(portlist, min_grouping_size=2)
     if trunklist:
         portlist_config[0] = portlist_config[0] + "," + ",".join(sorted(trunklist))
