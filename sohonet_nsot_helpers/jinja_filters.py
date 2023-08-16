@@ -98,3 +98,20 @@ def netiron_normalized_interface_to_config(interface_name):
             return f"loopback {match.group(2)}"
 
     return interface_name
+
+
+def bandwith_to_optiswitch_name(bandwidth):
+    ''' convert an int for megabits and convert to multiples in m or g
+    i.e.
+
+        500 -> 500m
+        1000 -> 1g
+        1500 -> 1500m
+        3000 -> 3g
+        10000 -> 10g
+    '''
+
+    if (bandwidth % 1000) == 0:
+        return f"{int(bandwidth/1000)}g"
+    else:
+        return f"{bandwidth}m"
