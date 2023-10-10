@@ -126,7 +126,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 9999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         9000: {
@@ -135,7 +135,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 8999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         8000: {
@@ -144,7 +144,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 7999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         7000: {
@@ -153,7 +153,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 6999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         6000: {
@@ -162,7 +162,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 5999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         5000: {
@@ -171,7 +171,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1536,
             "policer_ebs": 16,
             "shaper_cir": 4999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1536
         },
         4000: {
@@ -180,7 +180,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1280,
             "policer_ebs": 16,
             "shaper_cir": 3999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1280
         },
         3000: {
@@ -189,7 +189,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1280,
             "policer_ebs": 16,
             "shaper_cir": 2999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1280
         },
         2000: {
@@ -198,7 +198,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1280,
             "policer_ebs": 16,
             "shaper_cir": 1999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1280
         },
         1000: {
@@ -207,7 +207,7 @@ def adva_shaping_values(bandwidth, value):
             "policer_cbs": 1024,
             "policer_ebs": 16,
             "shaper_cir": 999872000,
-            "shaper_eir": 128,
+            "shaper_eir": 128000,
             "shaper_bs": 1024
         },
         900: {
