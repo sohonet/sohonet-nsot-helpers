@@ -5,7 +5,7 @@ from netutils.vlan import vlanlist_to_config
 import requests
 import ipaddress
 import re
-
+import math
 
 def encrypt_cisco_type7(password):
     return cisco_type7.hash(password, salt=1)
@@ -115,3 +115,206 @@ def bandwith_to_optiswitch_name(bandwidth):
         return f"{int(bandwidth/1000)}g"
     else:
         return f"{bandwidth}m"
+
+def adva_shaping_values(bandwidth, value):
+    ''' return a shaper value for the given bandwidth '''
+
+    bandwidth_params = {
+        10000: {
+            "policer_cir": 9999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 9999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        9000: {
+            "policer_cir": 8999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 8999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        8000: {
+            "policer_cir": 7999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 7999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        7000: {
+            "policer_cir": 6999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 6999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        6000: {
+            "policer_cir": 5999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 5999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        5000: {
+            "policer_cir": 4999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1536,
+            "policer_ebs": 16,
+            "shaper_cir": 4999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1536
+        },
+        4000: {
+            "policer_cir": 3999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1280,
+            "policer_ebs": 16,
+            "shaper_cir": 3999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1280
+        },
+        3000: {
+            "policer_cir": 2999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1280,
+            "policer_ebs": 16,
+            "shaper_cir": 2999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1280
+        },
+        2000: {
+            "policer_cir": 1999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1280,
+            "policer_ebs": 16,
+            "shaper_cir": 1999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1280
+        },
+        1000: {
+            "policer_cir": 999872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1024,
+            "policer_ebs": 16,
+            "shaper_cir": 999872000,
+            "shaper_eir": 128,
+            "shaper_bs": 1024
+        },
+        900: {
+            "policer_cir": 899872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1024,
+            "policer_ebs": 16,
+            "shaper_cir": 899872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 1024
+        },
+        800: {
+            "policer_cir": 799872000,
+            "policer_eir": 128000,
+            "policer_cbs": 1024,
+            "policer_ebs": 16,
+            "shaper_cir": 799872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 1024
+        },
+        700: {
+            "policer_cir": 699872000,
+            "policer_eir": 128000,
+            "policer_cbs": 512,
+            "policer_ebs": 16,
+            "shaper_cir": 699872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 512
+        },
+        600: {
+            "policer_cir": 599872000,
+            "policer_eir": 128000,
+            "policer_cbs": 512,
+            "policer_ebs": 16,
+            "shaper_cir": 599872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 512
+        },
+        500: {
+            "policer_cir": 499872000,
+            "policer_eir": 128000,
+            "policer_cbs": 512,
+            "policer_ebs": 16,
+            "shaper_cir": 499872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 512
+        },
+        400: {
+            "policer_cir": 399872000,
+            "policer_eir": 128000,
+            "policer_cbs": 256,
+            "policer_ebs": 16,
+            "shaper_cir": 399872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 256
+        },
+        300: {
+            "policer_cir": 299872000,
+            "policer_eir": 128000,
+            "policer_cbs": 256,
+            "policer_ebs": 16,
+            "shaper_cir": 299872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 256
+        },
+        200: {
+            "policer_cir": 199872000,
+            "policer_eir": 128000,
+            "policer_cbs": 128,
+            "policer_ebs": 16,
+            "shaper_cir": 199872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 128
+        },
+        100: {
+            "policer_cir": 99872000,
+            "policer_eir": 128000,
+            "policer_cbs": 128,
+            "policer_ebs": 16,
+            "shaper_cir": 99872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 128
+        },
+        50: {
+            "policer_cir": 49920000,
+            "policer_eir": 128000,
+            "policer_cbs": 64,
+            "policer_ebs": 16,
+            "shaper_cir": 49872000,
+            "shaper_eir": 128000,
+            "shaper_bs": 64
+        }
+    }
+
+    # Round down to nearest bandwidth value
+    if bandwidth not in bandwidth_params.keys():
+        # 10000 is max bandiwdth in bandwidth_params
+        if bandwidth > 10000:
+            bandwidth = 10000
+        # Check thousands
+        elif math.floor(bandwidth/1000) * 1000 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth/1000) * 1000
+        # Check hundreds
+        elif math.floor(bandwidth/100) * 100 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth/100) * 100
+        # Only remaining value is 50
+        else:
+            bandwidth = 50
+
+    return bandwidth_params[bandwidth][value]
