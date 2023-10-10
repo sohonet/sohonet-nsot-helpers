@@ -2,3 +2,4 @@ napalm
 netaddr
 netmiko
 netutils
+passlib
