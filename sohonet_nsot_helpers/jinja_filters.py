@@ -7,6 +7,7 @@ import ipaddress
 import re
 import math
 
+
 def encrypt_cisco_type7(password):
     return cisco_type7.hash(password, salt=1)
 
@@ -115,6 +116,7 @@ def bandwith_to_optiswitch_name(bandwidth):
         return f"{int(bandwidth/1000)}g"
     else:
         return f"{bandwidth}m"
+
 
 def adva_shaping_values(bandwidth, value):
     ''' return a shaper value for the given bandwidth '''
@@ -308,11 +310,11 @@ def adva_shaping_values(bandwidth, value):
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
-        elif math.floor(bandwidth/1000) * 1000 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth/1000) * 1000
+        elif math.floor(bandwidth / 1000) * 1000 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth / 1000) * 1000
         # Check hundreds
-        elif math.floor(bandwidth/100) * 100 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth/100) * 100
+        elif math.floor(bandwidth / 100) * 100 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth / 100) * 100
         # Only remaining value is 50
         else:
             bandwidth = 50

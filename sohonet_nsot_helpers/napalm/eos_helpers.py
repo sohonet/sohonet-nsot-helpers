@@ -8,6 +8,7 @@ import pyeapi
 import napalm.base.helpers
 
 from napalm.eos.eos import EOSDriver
+from pyeapi.eapilib import CommandError
 
 
 def transform_arista_vlans(vlan_dict):
@@ -177,12 +178,17 @@ def eos_get_interfaces_vlans(self):
 
 def eos_get_interfaces(self):
     ''' Monkeypatch to add port-channel children in get_interfaces '''
-    commands = ['show interfaces', 'show interfaces status', 'show mpls interface']
+    commands = ['show interfaces', 'show interfaces status']
     cmd_result = self.device.run_commands(commands)
+
+    try:
+        mpls_result = self.device.run_commands(['show mpls interface'])
+        show_mpls_interface = mpls_result[0]
+    except CommandError as e:
+        show_mpls_interface = {'intfs': {}}
 
     show_interfaces = cmd_result[0]
     show_interfaces_status = cmd_result[1]
-    show_mpls_interface = cmd_result[2]
 
     interfaces = {}
 
