@@ -123,184 +123,144 @@ def adva_shaping_values(bandwidth, value):
 
     bandwidth_params = {
         10000: {
-            "policer_cir": 9999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 9999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 9999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         9000: {
-            "policer_cir": 8999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 8999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 8999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         8000: {
-            "policer_cir": 7999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 7999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 7999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         7000: {
-            "policer_cir": 6999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 6999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 6999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         6000: {
-            "policer_cir": 5999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 5999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 5999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         5000: {
-            "policer_cir": 4999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1536,
-            "policer_ebs": 16,
-            "shaper_cir": 4999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1536
+            "cir": 4999872000,
+            "eir": 128000,
+            "cbs": 1536,
+            "ebs": 16,
+            "buffersize": 1536
         },
         4000: {
-            "policer_cir": 3999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1280,
-            "policer_ebs": 16,
-            "shaper_cir": 3999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1280
+            "cir": 3999872000,
+            "eir": 128000,
+            "cbs": 1280,
+            "ebs": 16,
+            "buffersize": 1280
         },
         3000: {
-            "policer_cir": 2999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1280,
-            "policer_ebs": 16,
-            "shaper_cir": 2999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1280
+            "cir": 2999872000,
+            "eir": 128000,
+            "cbs": 1280,
+            "ebs": 16,
+            "buffersize": 1280
         },
         2000: {
-            "policer_cir": 1999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1280,
-            "policer_ebs": 16,
-            "shaper_cir": 1999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1280
+            "cir": 1999872000,
+            "eir": 128000,
+            "cbs": 1280,
+            "ebs": 16,
+            "buffersize": 1280
         },
         1000: {
-            "policer_cir": 999872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1024,
-            "policer_ebs": 16,
-            "shaper_cir": 999872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1024
+            "cir": 999872000,
+            "eir": 128000,
+            "cbs": 1024,
+            "ebs": 16,
+            "buffersize": 1024
         },
         900: {
-            "policer_cir": 899872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1024,
-            "policer_ebs": 16,
-            "shaper_cir": 899872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1024
+            "cir": 899872000,
+            "eir": 128000,
+            "cbs": 1024,
+            "ebs": 16,
+            "buffersize": 1024
         },
         800: {
-            "policer_cir": 799872000,
-            "policer_eir": 128000,
-            "policer_cbs": 1024,
-            "policer_ebs": 16,
-            "shaper_cir": 799872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 1024
+            "cir": 799872000,
+            "eir": 128000,
+            "cbs": 1024,
+            "ebs": 16,
+            "buffersize": 1024
         },
         700: {
-            "policer_cir": 699872000,
-            "policer_eir": 128000,
-            "policer_cbs": 512,
-            "policer_ebs": 16,
-            "shaper_cir": 699872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 512
+            "cir": 699872000,
+            "eir": 128000,
+            "cbs": 512,
+            "ebs": 16,
+            "buffersize": 512
         },
         600: {
-            "policer_cir": 599872000,
-            "policer_eir": 128000,
-            "policer_cbs": 512,
-            "policer_ebs": 16,
-            "shaper_cir": 599872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 512
+            "cir": 599872000,
+            "eir": 128000,
+            "cbs": 512,
+            "ebs": 16,
+            "buffersize": 512
         },
         500: {
-            "policer_cir": 499872000,
-            "policer_eir": 128000,
-            "policer_cbs": 512,
-            "policer_ebs": 16,
-            "shaper_cir": 499872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 512
+            "cir": 499872000,
+            "eir": 128000,
+            "cbs": 512,
+            "ebs": 16,
+            "buffersize": 512
         },
         400: {
-            "policer_cir": 399872000,
-            "policer_eir": 128000,
-            "policer_cbs": 256,
-            "policer_ebs": 16,
-            "shaper_cir": 399872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 256
+            "cir": 399872000,
+            "eir": 128000,
+            "cbs": 256,
+            "ebs": 16,
+            "buffersize": 256
         },
         300: {
-            "policer_cir": 299872000,
-            "policer_eir": 128000,
-            "policer_cbs": 256,
-            "policer_ebs": 16,
-            "shaper_cir": 299872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 256
+            "cir": 299872000,
+            "eir": 128000,
+            "cbs": 256,
+            "ebs": 16,
+            "buffersize": 256
         },
         200: {
-            "policer_cir": 199872000,
-            "policer_eir": 128000,
-            "policer_cbs": 128,
-            "policer_ebs": 16,
-            "shaper_cir": 199872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 128
+            "cir": 199872000,
+            "eir": 128000,
+            "cbs": 128,
+            "ebs": 16,
+            "buffersize": 128
         },
         100: {
-            "policer_cir": 99872000,
-            "policer_eir": 128000,
-            "policer_cbs": 128,
-            "policer_ebs": 16,
-            "shaper_cir": 99872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 128
+            "cir": 99872000,
+            "eir": 128000,
+            "cbs": 128,
+            "ebs": 16,
+            "buffersize": 128
         },
         50: {
-            "policer_cir": 49920000,
-            "policer_eir": 128000,
-            "policer_cbs": 64,
-            "policer_ebs": 16,
-            "shaper_cir": 49872000,
-            "shaper_eir": 128000,
-            "shaper_bs": 64
+            "cir": 49920000,
+            "eir": 128000,
+            "cbs": 64,
+            "ebs": 16,
+            "buffersize": 64
         }
     }
 
