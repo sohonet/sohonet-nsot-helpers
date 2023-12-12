@@ -118,8 +118,8 @@ def bandwith_to_optiswitch_name(bandwidth):
         return f"{bandwidth}m"
 
 
-def adva_shaping_values(bandwidth, value, custom_shaping=False, shaping_eir=False):
-    ''' return a shaper value for the given bandwidth '''
+def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
+    ''' return shaping values for the given bandwidth '''
 
     bandwidth_params = {
         10000: {
@@ -261,14 +261,16 @@ def adva_shaping_values(bandwidth, value, custom_shaping=False, shaping_eir=Fals
             "cbs": 64,
             "ebs": 16,
             "buffersize": 64
+        },
+        # 64k - used for overcommited services.
+        64: {
+            "cir": 64000,
+            "eir": 128000,
+            "cbs": 1024,
+            "ebs": 16,
+            "buffersize": 1024
         }
     }
-
-    # Support custom EIR values - for overcommited services with low cir & high eir.
-    # Return cir value from table for desired eir
-    if value == 'eir' and custom_shaping and shaping_eir:
-        bandwidth = shaping_eir
-        value = 'cir'
 
     # Round down to nearest bandwidth value
     if bandwidth not in bandwidth_params.keys():
@@ -285,4 +287,15 @@ def adva_shaping_values(bandwidth, value, custom_shaping=False, shaping_eir=Fals
         else:
             bandwidth = 50
 
-    return bandwidth_params[bandwidth][value]
+    shaping_table = bandwidth_params[bandwidth]
+
+    # Support custom EIR values - for overcommited services with low cir & high eir.
+    # Return modified table
+    if custom_shaping and shaping_eir:
+        eir_shaping_table = bandwidth_params[shaping_eir]
+        shaping_table['eir'] = eir_shaping_table['cir']
+        shaping_table['cbs'] = eir_shaping_table['cbs']
+        shaping_table['ebs'] = eir_shaping_table['ebs']
+        shaping_table['buffersize'] = eir_shaping_table['buffersize']
+
+    return shaping_table
