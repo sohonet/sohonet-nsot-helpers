@@ -118,7 +118,7 @@ def bandwith_to_optiswitch_name(bandwidth):
         return f"{bandwidth}m"
 
 
-def adva_shaping_values(bandwidth, value):
+def adva_shaping_values(bandwidth, value, custom_shaping=False, shaping_eir=False):
     ''' return a shaper value for the given bandwidth '''
 
     bandwidth_params = {
@@ -263,6 +263,12 @@ def adva_shaping_values(bandwidth, value):
             "buffersize": 64
         }
     }
+
+    # Support custom EIR values - for overcommited services with low cir & high eir.
+    # Return cir value from table for desired eir
+    if value == 'eir' and custom_shaping and shaping_eir:
+        bandwidth = shaping_eir
+        value = 'cir'
 
     # Round down to nearest bandwidth value
     if bandwidth not in bandwidth_params.keys():
