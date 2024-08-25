@@ -299,3 +299,18 @@ def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
         shaping_table['buffersize'] = eir_shaping_table['buffersize']
 
     return shaping_table
+
+
+def service_types(service_inventories):
+    ''' from list of service inventories, return a list of service types '''
+
+    return [s['serviceid']['service_type'] for s in service_inventories]
+
+
+def has_p2p(service_inventories):
+    ''' returns true if list of service inventories include a managed P2P service'''
+    service_types = service_types(service_inventories)
+    if 'Network - P2P Managed' in service_types:
+        return True
+
+    return False
