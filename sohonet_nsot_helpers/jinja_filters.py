@@ -301,11 +301,6 @@ def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
     return shaping_table
 
 
-def has_p2p(service_inventories):
-    ''' returns true if list of service inventories include a managed P2P service'''
-    service_types = [s['serviceid']['service_type'] for s in service_inventories]
-
-    if 'Network - P2P Managed' in service_types:
-        return True
-
-    return False
+def filter_inventories(service_inventories, filter):
+    ''' return list of service inventories with service_type matching filter  '''
+    return [s for s in service_inventories if s['serviceid']['service_type'] == filter]
