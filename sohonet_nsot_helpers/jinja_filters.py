@@ -118,6 +118,11 @@ def bandwith_to_optiswitch_name(bandwidth):
         return f"{bandwidth}m"
 
 
+def filter_inventories(service_inventories, filter):
+    ''' return list of service inventories with service_type matching filter  '''
+    return [s for s in service_inventories if s['serviceid']['service_type'] == filter]
+
+
 def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
     ''' return shaping values for the given bandwidth '''
 
@@ -301,6 +306,105 @@ def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
     return shaping_table
 
 
-def filter_inventories(service_inventories, filter):
-    ''' return list of service inventories with service_type matching filter  '''
-    return [s for s in service_inventories if s['serviceid']['service_type'] == filter]
+def mrv_shaping_values(bandwidth):
+    ''' return shaping values for the given bandwidth '''
+
+    bandwidth_params = {
+        10000: {
+            "cir": "10g",
+            "cbs": "1M",
+        },
+        9000: {
+            "cir": "9g",
+            "cbs": "1M",
+        },
+        8000: {
+            "cir": "8g",
+            "cbs": "1M",
+        },
+        7000: {
+            "cir": "7g",
+            "cbs": "1M",
+        },
+        6000: {
+            "cir": "6g",
+            "cbs": "1M",
+        },
+        5000: {
+            "cir": "5g",
+            "cbs": "1M",
+        },
+        4000: {
+            "cir": "4g",
+            "cbs": "1M",
+        },
+        3000: {
+            "cir": "3g",
+            "cbs": "1M",
+        },
+        2000: {
+            "cir": "2g",
+            "cbs": "1M",
+        },
+        1000: {
+            "cir": "1g",
+            "cbs": "1M",
+        },
+        900: {
+            "cir": "900m",
+            "cbs": "1M",
+        },
+        800: {
+            "cir": "800m",
+            "cbs": "1M",
+        },
+        700: {
+            "cir": "700m",
+            "cbs": "1M",
+        },
+        600: {
+            "cir": "600m",
+            "cbs": "1M",
+        },
+        500: {
+            "cir": "500m",
+            "cbs": "1M",
+        },
+        400: {
+            "cir": "400m",
+            "cbs": "1M",
+        },
+        300: {
+            "cir": "300m",
+            "cbs": "1M",
+        },
+        200: {
+            "cir": "200m",
+            "cbs": "1M",
+        },
+        100: {
+            "cir": "100m",
+            "cbs": "1M",
+        },
+        50: {
+            "cir": "50m",
+            "cbs": "500k",
+        },
+    }
+
+    # Round down to nearest bandwidth value
+    if bandwidth not in bandwidth_params.keys():
+        # 10000 is max bandiwdth in bandwidth_params
+        if bandwidth > 10000:
+            bandwidth = 10000
+        # Check thousands
+        elif math.floor(bandwidth / 1000) * 1000 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth / 1000) * 1000
+        # Check hundreds
+        elif math.floor(bandwidth / 100) * 100 in bandwidth_params.keys():
+            bandwidth = math.floor(bandwidth / 100) * 100
+        # Only remaining value is 50
+        else:
+            bandwidth = 50
+
+    return bandwidth_params[bandwidth]
