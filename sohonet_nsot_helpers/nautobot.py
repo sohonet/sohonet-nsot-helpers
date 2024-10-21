@@ -35,6 +35,19 @@ def sohonet_custom_compliance(obj):
     """
     from nautobot_golden_config.models import FUNC_MAPPER
 
+    # If device role is CPE and NOT nautobot controlled, then ignore interface and shaping rules
+    # This is to allow old MRVs which are are not managing to have base config rules (i.e. syslog, ntp)
+    # But not include the full service config management
+    if obj.device.role.name == 'CPE' and obj.rule.feature.name in ['interfaces', 'shaping']:
+        return {
+            'compliance': True,
+            'compliance_int': 1,
+            'ordered': False,
+            'missing': '',
+            'extra': '',
+        }
+
+
     # Filter included lines only from actual config
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
     if compliance_include_patterns and isinstance(compliance_include_patterns, list):
