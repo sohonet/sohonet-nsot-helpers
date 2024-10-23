@@ -421,3 +421,18 @@ def mrv_shaping_values(bandwidth):
             bandwidth = 50
 
     return bandwidth_params[bandwidth]
+
+
+def config_compliance(compliance_set):
+    """
+    Checks if all items in the compliance set are compliant.
+
+    Args:
+        compliance_set (QuerySet): A Django QuerySet containing objects with a 'compliance' attribute.
+
+    Returns:
+        bool: True if all items in the compliance set are compliant, False otherwise.
+    """
+    if any(c.compliance == False for c in compliance_set.all()):
+        return False
+    return True
