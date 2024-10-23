@@ -2,6 +2,16 @@ import re
 
 
 def compliance_include(compliance_include_patterns, actual_config):
+    """
+    Include lines from the actual configuration based on the provided patterns.
+
+    Args:
+        compliance_include_patterns (list): List of regex patterns to include.
+        actual_config (str): The actual configuration as a string.
+
+    Returns:
+        list: Lines from the actual configuration that match any of the include patterns.
+    """
     included_lines = []
     matchers = [re.compile(pattern) for pattern in compliance_include_patterns]
     for line in actual_config.splitlines():
@@ -12,6 +22,16 @@ def compliance_include(compliance_include_patterns, actual_config):
 
 
 def compliance_exclude(compliance_exclude_patterns, actual_config):
+    """
+    Exclude lines from the actual configuration based on the provided patterns.
+
+    Args:
+        compliance_exclude_patterns (list): List of regex patterns to exclude.
+        actual_config (str): The actual configuration as a string.
+
+    Returns:
+        list: Lines from the actual configuration that do not match any of the exclude patterns.
+    """
     included_lines = []
     matchers = [re.compile(pattern) for pattern in compliance_exclude_patterns]
     for line in actual_config.splitlines():
@@ -24,12 +44,17 @@ def compliance_exclude(compliance_exclude_patterns, actual_config):
 def sohonet_custom_compliance(obj):
     """Custom compliance function for use with nautobot golden config
 
-    Custom field 'compliance_include' can be set in rules within the Nautobot UI.
-    This should be a list of python regexs, only config lines matching these regexes will be
+    Custom field 'compliance_include' and 'compliance_exclude' can be set in rules within the
+    Nautobot UI. This should be a list of python regexs, config lines matching these regexes
+    will be included/excluded from the compliance check as necessaary,
 
+    Additionally, if the device is a CPE and not nautobot controlled, then the compliance check will
+    always succeed for the following features:
+    - interfaces
+    - shaping
+    - oam
 
-    At the moment, this is used for compliance of interface configurations, and filters the configs
-    so that only the interface description is being managed.
+    This is to support partial config management for devices that are not fully managed by nautobot.
 
     Based on https://github.com/joewesch/nautobot_golden_config_custom_compliance
     """

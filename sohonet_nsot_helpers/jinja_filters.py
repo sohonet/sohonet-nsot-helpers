@@ -13,6 +13,19 @@ def encrypt_cisco_type7(password):
 
 
 def encrypt_netiron_snmp(community):
+    """
+    Encrypts an SNMP community string for NetIron devices.
+
+    This function takes an SNMP community string and encrypts it using a predefined
+    character substitution table. The resulting encrypted string is then encoded
+    in base64 and prefixed with a dollar sign ('$').
+
+    Args:
+        community (str): The SNMP community string to be encrypted.
+
+    Returns:
+        str: The encrypted and base64-encoded SNMP community string, prefixed with '$'.
+    """
 
     # yapf: disable
     table = {
