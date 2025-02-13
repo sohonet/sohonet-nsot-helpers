@@ -280,6 +280,13 @@ def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
             "ebs": 16,
             "buffersize": 64
         },
+        0: {
+            "cir": 0,
+            "eir": 64000,
+            "cbs": 64,
+            "ebs": 16,
+            "buffersize": 64
+        },
         # 64k - used for overcommited services.
         64: {
             "cir": 64000,
@@ -403,6 +410,11 @@ def mrv_shaping_values(bandwidth):
             "cir": "50m",
             "cbs": "500k",
         },
+        # To support 0 bandwidth services. Should be 0 cir 64k eir to match Adva table
+        0: {
+            "cir": "64k",
+            "cbs": "64k"
+        }
     }
 
     # Round down to nearest bandwidth value
