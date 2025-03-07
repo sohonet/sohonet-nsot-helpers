@@ -136,7 +136,7 @@ def filter_inventories(service_inventories, filter):
     return [s for s in service_inventories if s['serviceid']['service_type'] == filter]
 
 
-def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
+def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, shaping_eir=False):
     ''' return shaping values for the given bandwidth '''
 
     bandwidth_params = {
@@ -322,6 +322,11 @@ def adva_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
         shaping_table['cbs'] = eir_shaping_table['cbs']
         shaping_table['ebs'] = eir_shaping_table['ebs']
         shaping_table['buffersize'] = eir_shaping_table['buffersize']
+
+    # If bandwidth is less than max_port_bandwidth, set buffersize to the value for max_port_bandwidth
+    if bandwidth < max_port_bandwidth:
+        max_port_shaping_table = bandwidth_params[max_port_bandwidth]
+        shaping_table['buffersize'] = max_port_shaping_table['buffersize']
 
     return shaping_table
 
