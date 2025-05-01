@@ -11,7 +11,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="sohonet-nsot-helpers",
-    version="0.1.26",
+    version="0.1.27",
     packages=find_packages(),
     author="Johan van den Dorpe",
     author_email="johan.vandendorpe@sohonet.com",
