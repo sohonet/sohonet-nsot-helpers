@@ -271,6 +271,7 @@ def eos_get_interfaces_ip(self):
     interface_config = self.device.run_commands(["show running-config | section interface"],
                                                 encoding="text")[0]["output"]
     interface_acls = _textfsm_extractor("eos_show_running_config_interface_acl", interface_config)
+    interface_virtual_ips = _textfsm_extractor("eos_show_running_config_interface_virtual_router", interface_config)
 
     for interface_name, interface_details in interfaces_ipv4_out.items():
         ipv4_list = []
@@ -302,6 +303,12 @@ def eos_get_interfaces_ip(self):
 
         interfaces_ip[interface_name]["vrf"] = interface_details.get('vrf')
 
+    for i in interface_virtual_ips:
+        if i["ipaddress"]:
+            if i["interface"] in interfaces_ip.keys():
+                if i["ipaddress"] not in interfaces_ip[i["interface"]]["ipv4"].keys():
+                    interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1]}
+    
     for interface_name, interface_details in interfaces_ipv6_out.items():
         ipv6_list = []
         if interface_name not in interfaces_ip.keys():
