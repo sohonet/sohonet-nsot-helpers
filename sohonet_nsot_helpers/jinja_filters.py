@@ -299,15 +299,17 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
 
     # Round down to nearest bandwidth value
     if bandwidth not in bandwidth_params.keys():
+        bandwidth_rounded_down_to_nearest_1000 = math.floor(bandwidth / 1000) * 1000
+        bandwidth_rounded_down_to_nearest_100 = math.floor(bandwidth / 100) * 100
         # 10000 is max bandiwdth in bandwidth_params
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
-        elif math.floor(bandwidth / 1000) * 1000 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth / 1000) * 1000
+        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys():
+            bandwidth = bandwidth_rounded_down_to_nearest_1000
         # Check hundreds
-        elif math.floor(bandwidth / 100) * 100 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth / 100) * 100
+        elif bandwidth_rounded_down_to_nearest_100 and bandwidth_rounded_down_to_nearest_100 in bandwidth_params.keys():
+            bandwidth = bandwidth_rounded_down_to_nearest_100
         # Only remaining value is 50
         else:
             bandwidth = 50
@@ -424,15 +426,17 @@ def mrv_shaping_values(bandwidth):
 
     # Round down to nearest bandwidth value
     if bandwidth not in bandwidth_params.keys():
+        bandwidth_rounded_down_to_nearest_1000 = math.floor(bandwidth / 1000) * 1000
+        bandwidth_rounded_down_to_nearest_100 = math.floor(bandwidth / 100) * 100
         # 10000 is max bandiwdth in bandwidth_params
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
-        elif math.floor(bandwidth / 1000) * 1000 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth / 1000) * 1000
+        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys():
+            bandwidth = bandwidth_rounded_down_to_nearest_1000
         # Check hundreds
-        elif math.floor(bandwidth / 100) * 100 in bandwidth_params.keys():
-            bandwidth = math.floor(bandwidth / 100) * 100
+        elif bandwidth_rounded_down_to_nearest_100 and bandwidth_rounded_down_to_nearest_100 in bandwidth_params.keys():
+            bandwidth = bandwidth_rounded_down_to_nearest_100
         # Only remaining value is 50
         else:
             bandwidth = 50
