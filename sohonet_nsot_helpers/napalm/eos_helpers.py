@@ -307,7 +307,11 @@ def eos_get_interfaces_ip(self):
         if i["ipaddress"]:
             if i["interface"] in interfaces_ip.keys():
                 if i["ipaddress"] not in interfaces_ip[i["interface"]]["ipv4"].keys():
-                    interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1]}
+                    # if there's no subnet specified then it'll be /32
+                    if len(i["ipaddress"].split("/")) == 1:
+                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"]] = {"prefix_length": "32"}
+                    else:
+                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1]}
     
     for interface_name, interface_details in interfaces_ipv6_out.items():
         ipv6_list = []
