@@ -203,6 +203,13 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
             "ebs": 16,
             "buffersize": 1280
         },
+        1500: {
+            "cir": 1499040000,
+            "eir": 128000,
+            "cbs": 1024,
+            "ebs": 16,
+            "buffersize": 1024
+        },
         1000: {
             "cir": 999360000,
             "eir": 128000,
@@ -259,8 +266,22 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
             "ebs": 16,
             "buffersize": 256
         },
+        250: {
+            "cir": 249200000,
+            "eir": 128000,
+            "cbs": 128,
+            "ebs": 16,
+            "buffersize": 128
+        },
         200: {
             "cir": 199360000,
+            "eir": 128000,
+            "cbs": 128,
+            "ebs": 16,
+            "buffersize": 128
+        },
+        150: {
+            "cir": 148992000,
             "eir": 128000,
             "cbs": 128,
             "ebs": 16,
@@ -301,7 +322,7 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
     if bandwidth not in bandwidth_params.keys():
         bandwidth_rounded_down_to_nearest_1000 = math.floor(bandwidth / 1000) * 1000
         bandwidth_rounded_down_to_nearest_100 = math.floor(bandwidth / 100) * 100
-        # 10000 is max bandiwdth in bandwidth_params
+        # 10000 is max bandwidth in bandwidth_params
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
@@ -373,6 +394,10 @@ def mrv_shaping_values(bandwidth):
             "cir": "2g",
             "cbs": "1M",
         },
+        1500: {
+            "cir": "1500m",
+            "cbs": "1M",
+        },
         1000: {
             "cir": "1g",
             "cbs": "1M",
@@ -405,8 +430,16 @@ def mrv_shaping_values(bandwidth):
             "cir": "300m",
             "cbs": "1M",
         },
+        250: {
+            "cir": "250m",
+            "cbs": "1M",
+        },
         200: {
             "cir": "200m",
+            "cbs": "1M",
+        },
+        150: {
+            "cir": "150m",
             "cbs": "1M",
         },
         100: {
@@ -428,7 +461,7 @@ def mrv_shaping_values(bandwidth):
     if bandwidth not in bandwidth_params.keys():
         bandwidth_rounded_down_to_nearest_1000 = math.floor(bandwidth / 1000) * 1000
         bandwidth_rounded_down_to_nearest_100 = math.floor(bandwidth / 100) * 100
-        # 10000 is max bandiwdth in bandwidth_params
+        # 10000 is max bandwidth in bandwidth_params
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
