@@ -35,7 +35,7 @@ def interface_type(interface, speed, interface_type=False):
     if re.match(r'^loopback|ve|tunnel|vlan|vif|default_vlan|lo|null', interface.lower()):
         return {'name': 'Virtual', 'slug': 'virtual'}
     # Arista EthernetX.YYY interfaces
-    if re.match(r'^ethernet\d+.*\.\d+', interface.lower()):
+    if re.match(r'^(ethernet|port-channel)\d+.*\.\d+', interface.lower()):
         return {'name': 'Virtual', 'slug': 'virtual'}
 
     # NetIron, Arista, MRV LAGs
