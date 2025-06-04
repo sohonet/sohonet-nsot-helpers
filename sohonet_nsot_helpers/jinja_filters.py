@@ -326,7 +326,8 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
-        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys():
+        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys(
+        ):
             bandwidth = bandwidth_rounded_down_to_nearest_1000
         # Check hundreds
         elif bandwidth_rounded_down_to_nearest_100 and bandwidth_rounded_down_to_nearest_100 in bandwidth_params.keys():
@@ -465,7 +466,8 @@ def mrv_shaping_values(bandwidth):
         if bandwidth > 10000:
             bandwidth = 10000
         # Check thousands
-        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys():
+        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys(
+        ):
             bandwidth = bandwidth_rounded_down_to_nearest_1000
         # Check hundreds
         elif bandwidth_rounded_down_to_nearest_100 and bandwidth_rounded_down_to_nearest_100 in bandwidth_params.keys():
