@@ -492,3 +492,8 @@ def config_compliance(compliance_set):
     if any(c.compliance == False for c in compliance_set.all()):
         return False
     return True
+
+
+def filter_interfaces_not_managementmode(interfaces, mode):
+    '''Filter interfaces that do not have a specific management mode.'''
+    return [i for i in interfaces if not i.get('managementmode') or i['managementmode'].get('mode') != mode]
