@@ -454,7 +454,7 @@ def mrv_shaping_values(bandwidth):
         # To support 0 bandwidth services. Should be 0 cir 64k eir to match Adva table
         0: {
             "cir": "64k",
-            "cbs": "64k"
+            "cbs": "64K"
         }
     }
 
