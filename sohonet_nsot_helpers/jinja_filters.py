@@ -355,106 +355,155 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
     return shaping_table
 
 
-def mrv_shaping_values(bandwidth):
+def mrv_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
+
     ''' return shaping values for the given bandwidth '''
 
     bandwidth_params = {
         10000: {
             "cir": "10g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         9000: {
             "cir": "9g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         8000: {
             "cir": "8g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         7000: {
             "cir": "7g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         6000: {
             "cir": "6g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         5000: {
             "cir": "5g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         4000: {
             "cir": "4g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         3000: {
             "cir": "3g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         2000: {
             "cir": "2g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         1500: {
             "cir": "1500m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         1000: {
             "cir": "1g",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         900: {
             "cir": "900m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         800: {
             "cir": "800m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         700: {
             "cir": "700m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         600: {
             "cir": "600m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         500: {
             "cir": "500m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         400: {
             "cir": "400m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         300: {
             "cir": "300m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         250: {
             "cir": "250m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         200: {
             "cir": "200m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         150: {
             "cir": "150m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         100: {
             "cir": "100m",
             "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
         },
         50: {
             "cir": "50m",
             "cbs": "500k",
+            "eir": "128k",
+            "ebs": "64K",
         },
         # To support 0 bandwidth services. Should be 0 cir 64k eir to match Adva table
         0: {
             "cir": "64k",
-            "cbs": "64K"
+            "cbs": "64K",
+            "eir": "64k",
+            "ebs": "64K",
         }
     }
 
@@ -476,7 +525,17 @@ def mrv_shaping_values(bandwidth):
         else:
             bandwidth = 50
 
-    return bandwidth_params[bandwidth]
+    shaping_table = bandwidth_params[bandwidth]
+
+    # Support custom EIR values - for overcommited services with low cir & high eir.
+    # Return modified table
+    if custom_shaping and shaping_eir:
+        eir_shaping_table = bandwidth_params[shaping_eir]
+        shaping_table['eir'] = eir_shaping_table['cir']
+        shaping_table['cbs'] = eir_shaping_table['cbs']
+        shaping_table['ebs'] = eir_shaping_table['ebs']
+
+    return shaping_table
 
 
 def config_compliance(compliance_set):
