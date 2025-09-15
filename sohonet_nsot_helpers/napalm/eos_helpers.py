@@ -83,6 +83,12 @@ def eos_get_vlans(self):
     # Process show vlans output
     vlans = transform_arista_vlans(output[0])
 
+    # also get shutdown virtual interfaces
+    for interface in [i for i in output[1]['interfaces'].keys() if 'Vlan' in i]:
+        vlan = interface[4:]
+        if interface not in vlans[vlan]['interfaces']:
+            vlans[vlan]['interfaces'].append(interface)
+
     # Get vlans from subinterfaces
     for interface in [i for i in output[1]['interfaces'].keys() if '.' in i]:
         vlan = get_subinterface_vlan(self.device, interface)
@@ -159,6 +165,12 @@ def eos_get_interfaces_vlans(self):
 
             if result[interface]['mode'] == 'access':
                 result[interface]['access-vlan'] = vlan
+    
+    # Disabled arista virtual interfaces will be skipped above, add the access vlan for those
+    for interface in [i for i in output[0]['interfaces'].keys() if 'Vlan' in i]:
+        vlan = interface[4:]
+        if result[interface]['access-vlan'] != vlan:
+            result[interface]['access-vlan'] = vlan
 
     # Add vlans for subinterfaces
     for interface in [i for i in output[0]['interfaces'].keys() if '.' in i]:
@@ -274,6 +286,7 @@ def eos_get_interfaces_ip(self):
     interface_virtual_ips = _textfsm_extractor("eos_show_running_config_interface_virtual_router", interface_config)
 
     for interface_name, interface_details in interfaces_ipv4_out.items():
+        
         ipv4_list = []
         if interface_name not in interfaces_ip.keys():
             interfaces_ip[interface_name] = {}
@@ -294,7 +307,7 @@ def eos_get_interfaces_ip(self):
                 "address": napalm.base.helpers.ip(secondary_ip.get("address")),
                 "masklen": secondary_ip.get("maskLen"),
             })
-
+        
         for ip in ipv4_list:
             if not ip.get("address"):
                 continue
@@ -302,7 +315,7 @@ def eos_get_interfaces_ip(self):
                 interfaces_ip[interface_name]["ipv4"][ip.get("address")] = {"prefix_length": ip.get("masklen")}
 
         interfaces_ip[interface_name]["vrf"] = interface_details.get('vrf')
-
+    
     for i in interface_virtual_ips:
         if i["ipaddress"]:
             if i["interface"] in interfaces_ip.keys():
@@ -311,10 +324,8 @@ def eos_get_interfaces_ip(self):
                     if len(i["ipaddress"].split("/")) == 1:
                         interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"]] = {"prefix_length": "32"}
                     else:
-                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {
-                            "prefix_length": i["ipaddress"].split("/")[-1]
-                        }
-
+                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1]}
+    
     for interface_name, interface_details in interfaces_ipv6_out.items():
         ipv6_list = []
         if interface_name not in interfaces_ip.keys():
