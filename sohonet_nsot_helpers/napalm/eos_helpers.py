@@ -86,7 +86,7 @@ def eos_get_vlans(self):
     # also get shutdown virtual interfaces
     for interface in [i for i in output[1]['interfaces'].keys() if 'Vlan' in i]:
         vlan = interface[4:]
-        if interface not in vlans[vlan]['interfaces']:
+        if vlan in vlans.keys() and interface not in vlans[vlan]['interfaces']:
             vlans[vlan]['interfaces'].append(interface)
 
     # Get vlans from subinterfaces
