@@ -74,6 +74,21 @@ def sohonet_custom_compliance(obj):
             'extra': '',
         }
 
+    # Track any existence-only check failures
+    existence_missing_lines = []
+
+    # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
+    compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
+    if compliance_existence_patterns and isinstance(compliance_existence_patterns, list):
+        all_exist, missing, modified_intended = compliance_match_existence(
+            compliance_existence_patterns, 
+            obj.actual or "", 
+            obj.intended or ""
+        )
+        if not all_exist:
+            existence_missing_lines = missing
+        obj.intended = modified_intended
+
     # Filter included lines only from actual config
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
     if compliance_include_patterns and isinstance(compliance_include_patterns, list):
@@ -93,4 +108,13 @@ def sohonet_custom_compliance(obj):
     # Run compliance method with filtered actual configuration
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
+    # Merge existence-check failures into the result
+    if existence_missing_lines:
+        existing_missing = compliance_details.get('missing', '')
+        combined_missing = "\n".join(existence_missing_lines)
+        if existing_missing:
+            combined_missing = combined_missing + "\n" + existing_missing
+        compliance_details['missing'] = combined_missing
+        compliance_details['compliance'] = False
+        compliance_details['compliance_int'] = 0
     return compliance_details
