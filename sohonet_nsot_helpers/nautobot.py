@@ -115,7 +115,7 @@ def sohonet_custom_compliance(obj):
 
     # Track any existence-only check failures
     existence_missing_lines = []
-    # Handle existence-only matching
+    # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
     compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
     if compliance_existence_patterns and isinstance(compliance_existence_patterns, list):
         all_exist, missing, modified_intended, modified_actual = compliance_match_existence(
@@ -125,11 +125,8 @@ def sohonet_custom_compliance(obj):
         )
         if not all_exist:
             existence_missing_lines = missing
-    
-    # Add existence patterns to exclude list automatically
-    compliance_exclude_patterns = obj.rule.custom_field_data.get("compliance_exclude") or []
-    compliance_exclude_patterns = list(compliance_exclude_patterns) + list(compliance_existence_patterns)
-    obj.rule.custom_field_data["compliance_exclude"] = compliance_exclude_patterns
+        obj.intended = modified_intended
+        obj.actual = modified_actual
 
     # Filter included lines only from actual config
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
@@ -152,18 +149,12 @@ def sohonet_custom_compliance(obj):
     compliance_details = compliance_method(obj)
     # Merge existence-check failures into the result
     if existence_missing_lines:
-        restored_intended = "\n".join(existence_missing_lines) + "\n" + (obj.intended or "")
-        obj.intended = restored_intended
-    
-    # Also update compliance_details if it tracks intended
-    if 'intended' in compliance_details:
-        compliance_details['intended'] = restored_intended
-    
-    existing_missing = compliance_details.get('missing', '')
-    combined_missing = "\n".join(existence_missing_lines)
-    if existing_missing:
-        combined_missing = combined_missing + "\n" + existing_missing
-    compliance_details['missing'] = combined_missing
-    compliance_details['compliance'] = False
-    compliance_details['compliance_int'] = 0
+        obj.intended = "\n".join(existence_missing_lines) + "\n" + (obj.intended or "")
+        existing_missing = compliance_details.get('missing', '')
+        combined_missing = "\n".join(existence_missing_lines)
+        if existing_missing:
+            combined_missing = combined_missing + "\n" + existing_missing
+        compliance_details['missing'] = combined_missing
+        compliance_details['compliance'] = False
+        compliance_details['compliance_int'] = 0
     return compliance_details
