@@ -21,6 +21,38 @@ def compliance_include(compliance_include_patterns, actual_config):
     return included_lines
 
 
+def compliance_match_existence(patterns, actual_config, intended_config):
+    """
+    Check that lines matching patterns exist in actual config, without comparing values.
+    For each pattern:
+    - If intended has a matching line, actual must also have a matching line
+    - The actual value doesn't need to match the intended value
+    Returns tuple: (all_exist, missing_lines, modified_intended)
+    """
+    matchers = [re.compile(pattern) for pattern in patterns]
+    missing_lines = []
+    lines_to_remove_from_intended = []
+    for matcher in matchers:
+        intended_matches = [
+            line for line in intended_config.splitlines() 
+            if [matcher.search](http://matcher.search)(line)
+        ]
+        actual_matches = [
+            line for line in actual_config.splitlines() 
+            if [matcher.search](http://matcher.search)(line)
+        ]
+        if intended_matches and not actual_matches:
+            missing_lines.extend(intended_matches)
+        lines_to_remove_from_intended.extend(intended_matches)
+    modified_intended_lines = [
+        line for line in intended_config.splitlines()
+        if line not in lines_to_remove_from_intended
+    ]
+    modified_intended = "\n".join(modified_intended_lines)
+    all_exist = len(missing_lines) == 0
+    return all_exist, missing_lines, modified_intended
+    
+
 def compliance_exclude(compliance_exclude_patterns, actual_config):
     """
     Exclude lines from the actual configuration based on the provided patterns.
