@@ -36,11 +36,11 @@ def compliance_match_existence(patterns, actual_config, intended_config):
     missing_lines = []
     for matcher in matchers:
         intended_matches = [
-            line for line in intended_config.splitlines() 
+            line for line in intended_config.splitlines()
             if matcher.search(line)
         ]
         actual_matches = [
-            line for line in actual_config.splitlines() 
+            line for line in actual_config.splitlines()
             if matcher.search(line)
         ]
         if intended_matches and not actual_matches:
@@ -58,7 +58,7 @@ def compliance_match_existence(patterns, actual_config, intended_config):
     modified_actual = "\n".join(modified_actual_lines)
     all_exist = len(missing_lines) == 0
     return all_exist, missing_lines, modified_intended, modified_actual
-    
+
 
 def compliance_exclude(compliance_exclude_patterns, actual_config):
     """
@@ -85,7 +85,7 @@ def sohonet_custom_compliance(obj):
 
     Custom field 'compliance_include' and 'compliance_exclude' can be set in rules within the
     Nautobot UI. This should be a list of python regexs, config lines matching these regexes
-    will be included/excluded from the compliance check as necessaary,
+    will be included/excluded from the compliance check as necessary.
 
     Additionally, if the device is a CPE and not nautobot controlled, then the compliance check will
     always succeed for the following features:
@@ -94,16 +94,12 @@ def sohonet_custom_compliance(obj):
     - oam
 
     This is to support partial config management for devices that are not fully managed by nautobot.
-
-    Based on https://github.com/joewesch/nautobot_golden_config_custom_compliance
     """
     from nautobot_golden_config.models import FUNC_MAPPER
 
     # If device role is CPE and NOT nautobot controlled, then ignore interface and shaping rules
-    # This is to allow old MRVs which are are not managing to have base config rules (i.e. syslog, ntp)
-    # But not include the full service config management
     if obj.device.role.name == 'CPE' and not obj.device.cf['config_controlled'] and obj.rule.feature.name in [
-            'interfaces', 'shaping', 'oam'
+        'interfaces', 'shaping', 'oam'
     ]:
         return {
             'compliance': True,
@@ -115,7 +111,23 @@ def sohonet_custom_compliance(obj):
 
     # Track any existence-only check failures
     existence_missing_lines = []
-    # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
+
+    # Filter included/excluded lines FIRST (before existence check)
+    compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
+    if compliance_include_patterns and isinstance(compliance_include_patterns, list):
+        included_lines_actual = compliance_include(compliance_include_patterns, obj.actual)
+        included_lines_intended = compliance_include(compliance_include_patterns, obj.intended)
+        obj.actual = "\n".join(included_lines_actual)
+        obj.intended = "\n".join(included_lines_intended)
+
+    compliance_exclude_patterns = obj.rule.custom_field_data.get("compliance_exclude")
+    if compliance_exclude_patterns and isinstance(compliance_exclude_patterns, list):
+        included_lines_actual = compliance_exclude(compliance_exclude_patterns, obj.actual)
+        included_lines_intended = compliance_exclude(compliance_exclude_patterns, obj.intended)
+        obj.actual = "\n".join(included_lines_actual)
+        obj.intended = "\n".join(included_lines_intended)
+
+    # THEN do existence check on the filtered configs
     compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
     if compliance_existence_patterns and isinstance(compliance_existence_patterns, list):
         all_exist, missing, modified_intended, modified_actual = compliance_match_existence(
@@ -128,25 +140,10 @@ def sohonet_custom_compliance(obj):
         obj.intended = modified_intended
         obj.actual = modified_actual
 
-    # Filter included lines only from actual config
-    compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
-    if compliance_include_patterns and isinstance(compliance_include_patterns, list):
-        included_lines_actual = compliance_include(compliance_include_patterns, obj.actual)
-        included_lines_intended = compliance_include(compliance_include_patterns, obj.intended)
-        obj.actual = "\n".join(included_lines_actual)
-        obj.intended = "\n".join(included_lines_intended)
-
-    # Filter out excluded lines only from actual config
-    compliance_exclude_patterns = obj.rule.custom_field_data.get("compliance_exclude")
-    if compliance_exclude_patterns and isinstance(compliance_exclude_patterns, list):
-        included_lines_actual = compliance_exclude(compliance_exclude_patterns, obj.actual)
-        included_lines_intended = compliance_exclude(compliance_exclude_patterns, obj.intended)
-        obj.actual = "\n".join(included_lines_actual)
-        obj.intended = "\n".join(included_lines_intended)
-
     # Run compliance method with filtered actual configuration
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
+
     # Merge existence-check failures into the result
     if existence_missing_lines:
         existing_missing = compliance_details.get('missing', '')
@@ -156,4 +153,5 @@ def sohonet_custom_compliance(obj):
         compliance_details['missing'] = combined_missing
         compliance_details['compliance'] = False
         compliance_details['compliance_int'] = 0
+
     return compliance_details
