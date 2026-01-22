@@ -24,41 +24,40 @@ def compliance_include(compliance_include_patterns, actual_config):
 def compliance_match_existence(patterns, actual_config, intended_config):
     """
     Check that lines matching patterns exist in actual config, without comparing values.
+    Removes matched lines from BOTH configs so they're not compared by standard compliance.
     """
-    import logging
-    log = logging.getLogger(__name__)
-    log_info = getattr(log, 'info')
-    log_info(f"compliance_match_existence called with patterns: {patterns}, type: {type(patterns)}")
     flat_patterns = []
     for p in patterns:
-        log_info(f"Pattern item: {p}, type: {type(p)}")
         if isinstance(p, list):
             flat_patterns.extend(p)
         else:
             flat_patterns.append(p)
     matchers = [re.compile(pattern) for pattern in flat_patterns]
     missing_lines = []
-    lines_to_remove_from_intended = []
     for matcher in matchers:
-        search_fn = getattr(matcher, 'search')
         intended_matches = [
             line for line in intended_config.splitlines() 
-            if search_fn(line)
+            if matcher.search(line)
         ]
         actual_matches = [
             line for line in actual_config.splitlines() 
-            if search_fn(line)
+            if matcher.search(line)
         ]
         if intended_matches and not actual_matches:
             missing_lines.extend(intended_matches)
-        lines_to_remove_from_intended.extend(intended_matches)
+    # Remove matched lines from BOTH configs
     modified_intended_lines = [
         line for line in intended_config.splitlines()
-        if line not in lines_to_remove_from_intended
+        if not any(m.search(line) for m in matchers)
+    ]
+    modified_actual_lines = [
+        line for line in actual_config.splitlines()
+        if not any(m.search(line) for m in matchers)
     ]
     modified_intended = "\n".join(modified_intended_lines)
+    modified_actual = "\n".join(modified_actual_lines)
     all_exist = len(missing_lines) == 0
-    return all_exist, missing_lines, modified_intended
+    return all_exist, missing_lines, modified_intended, modified_actual
     
 
 def compliance_exclude(compliance_exclude_patterns, actual_config):
@@ -120,7 +119,7 @@ def sohonet_custom_compliance(obj):
     # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
     compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
     if compliance_existence_patterns and isinstance(compliance_existence_patterns, list):
-        all_exist, missing, modified_intended = compliance_match_existence(
+        all_exist, missing, modified_intended, modified_actual = compliance_match_existence(
             compliance_existence_patterns, 
             obj.actual or "", 
             obj.intended or ""
@@ -128,6 +127,7 @@ def sohonet_custom_compliance(obj):
         if not all_exist:
             existence_missing_lines = missing
         obj.intended = modified_intended
+        obj.actual = modified_actual
 
     # Filter included lines only from actual config
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
