@@ -24,22 +24,30 @@ def compliance_include(compliance_include_patterns, actual_config):
 def compliance_match_existence(patterns, actual_config, intended_config):
     """
     Check that lines matching patterns exist in actual config, without comparing values.
-    For each pattern:
-    - If intended has a matching line, actual must also have a matching line
-    - The actual value doesn't need to match the intended value
-    Returns tuple: (all_exist, missing_lines, modified_intended)
     """
-    matchers = [re.compile(pattern) for pattern in patterns]
+    import logging
+    log = logging.getLogger(__name__)
+    log_info = getattr(log, 'info')
+    log_info(f"compliance_match_existence called with patterns: {patterns}, type: {type(patterns)}")
+    flat_patterns = []
+    for p in patterns:
+        log_info(f"Pattern item: {p}, type: {type(p)}")
+        if isinstance(p, list):
+            flat_patterns.extend(p)
+        else:
+            flat_patterns.append(p)
+    matchers = [re.compile(pattern) for pattern in flat_patterns]
     missing_lines = []
     lines_to_remove_from_intended = []
     for matcher in matchers:
+        search_fn = getattr(matcher, 'search')
         intended_matches = [
             line for line in intended_config.splitlines() 
-            if [matcher.search](matcher.search)(line)
+            if search_fn(line)
         ]
         actual_matches = [
             line for line in actual_config.splitlines() 
-            if [matcher.search](matcher.search)(line)
+            if search_fn(line)
         ]
         if intended_matches and not actual_matches:
             missing_lines.extend(intended_matches)
