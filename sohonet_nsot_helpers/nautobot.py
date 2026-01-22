@@ -149,12 +149,18 @@ def sohonet_custom_compliance(obj):
     compliance_details = compliance_method(obj)
     # Merge existence-check failures into the result
     if existence_missing_lines:
-        obj.intended = "\n".join(existence_missing_lines) + "\n" + (obj.intended or "")
-        existing_missing = compliance_details.get('missing', '')
-        combined_missing = "\n".join(existence_missing_lines)
-        if existing_missing:
-            combined_missing = combined_missing + "\n" + existing_missing
-        compliance_details['missing'] = combined_missing
-        compliance_details['compliance'] = False
-        compliance_details['compliance_int'] = 0
+        restored_intended = "\n".join(existence_missing_lines) + "\n" + (obj.intended or "")
+        obj.intended = restored_intended
+    
+    # Also update compliance_details if it tracks intended
+    if 'intended' in compliance_details:
+        compliance_details['intended'] = restored_intended
+    
+    existing_missing = compliance_details.get('missing', '')
+    combined_missing = "\n".join(existence_missing_lines)
+    if existing_missing:
+        combined_missing = combined_missing + "\n" + existing_missing
+    compliance_details['missing'] = combined_missing
+    compliance_details['compliance'] = False
+    compliance_details['compliance_int'] = 0
     return compliance_details
