@@ -149,7 +149,6 @@ def sohonet_custom_compliance(obj):
     compliance_details = compliance_method(obj)
     # Merge existence-check failures into the result
     if existence_missing_lines:
-        obj.intended = "\n".join(existence_missing_lines) + "\n" + (obj.intended or "")
         existing_missing = compliance_details.get('missing', '')
         combined_missing = "\n".join(existence_missing_lines)
         if existing_missing:
