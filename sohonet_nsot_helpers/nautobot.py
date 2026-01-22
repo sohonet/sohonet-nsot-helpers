@@ -119,9 +119,8 @@ def sohonet_custom_compliance(obj):
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
 
-    # Restore full intended config for config-sync and storage
-    if 'intended' in compliance_details:
-        compliance_details['intended'] = original_intended
+    # Restore obj.intended for config-sync (but leave compliance_details alone)
+    obj.intended = original_intended
 
     # Merge existence-check failures into the result
     if existence_missing_lines:
