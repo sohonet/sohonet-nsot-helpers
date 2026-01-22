@@ -35,11 +35,11 @@ def compliance_match_existence(patterns, actual_config, intended_config):
     for matcher in matchers:
         intended_matches = [
             line for line in intended_config.splitlines() 
-            if [matcher.search](http://matcher.search)(line)
+            if [matcher.search](matcher.search)(line)
         ]
         actual_matches = [
             line for line in actual_config.splitlines() 
-            if [matcher.search](http://matcher.search)(line)
+            if [matcher.search](matcher.search)(line)
         ]
         if intended_matches and not actual_matches:
             missing_lines.extend(intended_matches)
