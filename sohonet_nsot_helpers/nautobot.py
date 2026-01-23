@@ -124,6 +124,15 @@ def sohonet_custom_compliance(obj):
         obj.intended = "\n".join(included_lines_intended)
         logger.warning(f"=== AFTER EXCLUDE: intended lines: {len((obj.intended or '').splitlines())}, actual lines: {len((obj.actual or '').splitlines())} ===")
 
+    # Debug: compare configs before compliance
+    logger.warning(f"=== INTENDED CONFIG HASH: {hash(obj.intended)} ===")
+    logger.warning(f"=== ACTUAL CONFIG HASH: {hash(obj.actual)} ===")
+    logger.warning(f"=== CONFIGS EQUAL: {obj.intended == obj.actual} ===")
+    if obj.intended != obj.actual:
+        intended_lines = set(obj.intended.splitlines())
+        actual_lines = set(obj.actual.splitlines())
+        logger.warning(f"=== ONLY IN INTENDED: {intended_lines - actual_lines} ===")
+        logger.warning(f"=== ONLY IN ACTUAL: {actual_lines - intended_lines} ===")
     # Run compliance method with filtered configurations
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
