@@ -1,4 +1,7 @@
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def compliance_include(compliance_include_patterns, actual_config):
@@ -86,6 +89,8 @@ def sohonet_custom_compliance(obj):
     # Track any existence-only check failures
     existence_missing_lines = []
 
+    logger.warning(f"=== START: intended lines: {len((obj.intended or '').splitlines())}, actual lines: {len((obj.actual or '').splitlines())} ===")
+
     # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
     compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
     if compliance_existence_patterns and isinstance(compliance_existence_patterns, list):
@@ -94,6 +99,8 @@ def sohonet_custom_compliance(obj):
             obj.actual or "",
             obj.intended or ""
         )
+        logger.warning(f"=== EXISTENCE: all_exist={all_exist}, missing={missing} ===")
+        logger.warning(f"=== AFTER STRIP: intended lines: {len(modified_intended.splitlines())}, actual lines: {len(modified_actual.splitlines())} ===")
         if not all_exist:
             existence_missing_lines = missing
         obj.intended = modified_intended
@@ -106,6 +113,7 @@ def sohonet_custom_compliance(obj):
         included_lines_intended = compliance_include(compliance_include_patterns, obj.intended)
         obj.actual = "\n".join(included_lines_actual)
         obj.intended = "\n".join(included_lines_intended)
+        logger.warning(f"=== AFTER INCLUDE: intended lines: {len((obj.intended or '').splitlines())}, actual lines: {len((obj.actual or '').splitlines())} ===")
 
     # Filter out excluded lines from configs
     compliance_exclude_patterns = obj.rule.custom_field_data.get("compliance_exclude")
@@ -114,12 +122,17 @@ def sohonet_custom_compliance(obj):
         included_lines_intended = compliance_exclude(compliance_exclude_patterns, obj.intended)
         obj.actual = "\n".join(included_lines_actual)
         obj.intended = "\n".join(included_lines_intended)
+        logger.warning(f"=== AFTER EXCLUDE: intended lines: {len((obj.intended or '').splitlines())}, actual lines: {len((obj.actual or '').splitlines())} ===")
 
     # Run compliance method with filtered configurations
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
 
-    # Restore obj.intended for config-sync (but leave compliance_details alone)
+    logger.warning(f"=== COMPLIANCE RESULT: compliance={compliance_details.get('compliance')}, missing_len={len(compliance_details.get('missing', ''))}, extra_len={len(compliance_details.get('extra', ''))} ===")
+    logger.warning(f"=== MISSING: {compliance_details.get('missing', '')[:200]} ===")
+    logger.warning(f"=== EXTRA: {compliance_details.get('extra', '')[:200]} ===")
+
+    # Restore obj.intended for config-sync
     obj.intended = original_intended
 
     # Merge existence-check failures into the result
@@ -132,4 +145,5 @@ def sohonet_custom_compliance(obj):
         compliance_details['compliance'] = False
         compliance_details['compliance_int'] = 0
 
+    logger.warning(f"=== FINAL RETURN: compliance={compliance_details.get('compliance')} ===")
     return compliance_details
