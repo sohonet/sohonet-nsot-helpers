@@ -15,6 +15,69 @@ def compliance_include(compliance_include_patterns, actual_config):
             included_lines.append(line)
     return included_lines
 
+def compliance_stanza_extract(config_text, stanza_configs):
+    """
+    Extract config stanzas for one or more header/children combos.
+    stanza_configs: list of dicts, each with:
+        "header":   regex string matching stanza headers
+        "children": list of regex strings matching desired child lines
+    Results from all combos are merged in config order.
+    """
+    if not config_text or not stanza_configs:
+        return config_text or ""
+    # Build compiled matchers for each combo
+    combos = []
+    for cfg in stanza_configs:
+        header_pattern = cfg.get("header", "")
+        child_patterns = cfg.get("children", [])
+        if header_pattern and child_patterns:
+            combos.append({
+                "header_re": re.compile(header_pattern),
+                "child_res": [re.compile(p) for p in child_patterns],
+            })
+    if not combos:
+        return config_text
+    lines = config_text.splitlines()
+    # Track which output lines belong at which original position
+    # so multiple combos merge in config order
+    extracted = {}  # line_index -> list of output strings
+    for combo in combos:
+        header_re = combo["header_re"]
+        child_res = combo["child_res"]
+        i = 0
+        while i < len(lines):
+            stripped = lines[i].strip()
+            if header_re.search(stripped):
+                header = stripped
+                header_idx = i
+                i += 1
+                matched_children = []
+                while i < len(lines):
+                    child_stripped = lines[i].strip()
+                    if child_stripped == "!" or child_stripped == "":
+                        break
+                    # Check if this line is a header for ANY combo (stanza boundary)
+                    if any(c["header_re"].search(child_stripped) for c in combos):
+                        break
+                    if any(cr.search(child_stripped) for cr in child_res):
+                        matched_children.append(child_stripped)
+                    i += 1
+                if matched_children:
+                    if header_idx not in extracted:
+                        extracted[header_idx] = {"header": header, "children": []}
+                    extracted[header_idx]["children"].extend(matched_children)
+                if i < len(lines) and lines[i].strip() == "!":
+                    i += 1
+                continue
+            i += 1
+    # Build output in original config order
+    out = []
+    for idx in sorted(extracted.keys()):
+        out.append(extracted[idx]["header"])
+        for mc in extracted[idx]["children"]:
+            out.append("    " + mc)
+    return "\n".join(out)
+    
 
 def compliance_match_existence(patterns, actual_config, intended_config):
     """
@@ -90,6 +153,20 @@ def sohonet_custom_compliance(obj):
     existence_missing_lines = []
 
     logger.warning(f"=== START: intended lines: {len((obj.intended or '').splitlines())}, actual lines: {len((obj.actual or '').splitlines())} ===")
+
+    stanza_config = obj.rule.custom_field_data.get("compliance_stanza_extract")
+    if stanza_config:
+        # Support both single dict (legacy) and list of dicts
+        if isinstance(stanza_config, dict):
+            stanza_config = [stanza_config]
+        if isinstance(stanza_config, list):
+            obj.actual = compliance_stanza_extract(obj.actual or "", stanza_config)
+            obj.intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            logger.warning(
+                f"=== AFTER STANZA EXTRACT: intended lines: "
+                f"{len((obj.intended or '').splitlines())}, "
+                f"actual lines: {len((obj.actual or '').splitlines())} ==="
+            )
 
     # Handle existence-only matching (e.g., RADIUS keys with device-generated hashes)
     compliance_existence_patterns = obj.rule.custom_field_data.get("compliance_match_existence")
