@@ -59,7 +59,7 @@ def compliance_stanza_extract(config_text, stanza_configs):
                     # Check if this line is a header for ANY combo (stanza boundary)
                     if any(c["header_re"].search(child_stripped) for c in combos):
                         break
-                    if any(cr.search(child_stripped) for cr in child_res):
+                    if any(cr.search(lines[i]) for cr in child_res):
                         matched_children.append(child_stripped)
                     i += 1
                 if matched_children:
