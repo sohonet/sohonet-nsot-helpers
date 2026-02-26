@@ -214,18 +214,14 @@ def sohonet_custom_compliance(obj):
     compliance_method = FUNC_MAPPER["cli"]
     compliance_details = compliance_method(obj)
 
-    if stanza_config:
-        compliance_details['actual'] = obj.actual
-        compliance_details['intended'] = obj.intended
-
     logger.warning(f"=== COMPLIANCE RESULT: compliance={compliance_details.get('compliance')}, missing_len={len(compliance_details.get('missing', ''))}, extra_len={len(compliance_details.get('extra', ''))} ===")
     logger.warning(f"=== MISSING: {compliance_details.get('missing', '')[:200]} ===")
     logger.warning(f"=== EXTRA: {compliance_details.get('extra', '')[:200]} ===")
 
     # Restore obj.intended for config-sync
     # Only restore original intended if stanza extract was NOT applied
-    if not stanza_config:
-        obj.intended = original_intended
+    # if not stanza_config:
+    #    obj.intended = original_intended
 
     # Merge existence-check failures into the result
     if existence_missing_lines:
