@@ -219,7 +219,9 @@ def sohonet_custom_compliance(obj):
     logger.warning(f"=== EXTRA: {compliance_details.get('extra', '')[:200]} ===")
 
     # Restore obj.intended for config-sync
-    obj.intended = original_intended
+    # Only restore original intended if stanza extract was NOT applied
+    if not stanza_config:
+        obj.intended = original_intended
 
     # Merge existence-check failures into the result
     if existence_missing_lines:
