@@ -312,7 +312,7 @@ def eos_get_interfaces_ip(self):
             if not ip.get("address"):
                 continue
             if ip.get("address") not in interfaces_ip.get(interface_name).get("ipv4"):
-                interfaces_ip[interface_name]["ipv4"][ip.get("address")] = {"prefix_length": ip.get("masklen")}
+                interfaces_ip[interface_name]["ipv4"][ip.get("address")] = {"prefix_length": ip.get("masklen"), "is_virtual": False}
 
         interfaces_ip[interface_name]["vrf"] = interface_details.get('vrf')
     
@@ -322,9 +322,9 @@ def eos_get_interfaces_ip(self):
                 if i["ipaddress"] not in interfaces_ip[i["interface"]]["ipv4"].keys():
                     # if there's no subnet specified then it'll be /32
                     if len(i["ipaddress"].split("/")) == 1:
-                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"]] = {"prefix_length": "32"}
+                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"]] = {"prefix_length": "32", "is_virtual": True}
                     else:
-                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1]}
+                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1], "is_virtual": True}
     
     for interface_name, interface_details in interfaces_ipv6_out.items():
         ipv6_list = []
