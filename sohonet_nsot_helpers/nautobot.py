@@ -176,12 +176,14 @@ def sohonet_custom_compliance(obj):
             obj.actual or "",
             obj.intended or ""
         )
-        logger.warning(f"=== EXISTENCE: all_exist={all_exist}, missing={missing} ===")
-        logger.warning(f"=== AFTER STRIP: intended lines: {len(modified_intended.splitlines())}, actual lines: {len(modified_actual.splitlines())} ===")
         if not all_exist:
             existence_missing_lines = missing
-        obj.intended = modified_intended
-        obj.actual = modified_actual
+        # Store stripped versions for comparison only
+        comparison_intended = modified_intended
+        comparison_actual = modified_actual
+    else:
+        comparison_intended = None
+        comparison_actual = None
 
     # Filter included lines from configs
     compliance_include_patterns = obj.rule.custom_field_data.get("compliance_include")
@@ -212,7 +214,19 @@ def sohonet_custom_compliance(obj):
         logger.warning(f"=== ONLY IN ACTUAL: {actual_lines - intended_lines} ===")
     # Run compliance method with filtered configurations
     compliance_method = FUNC_MAPPER["cli"]
+    # If existence matching stripped lines, use stripped versions for comparison only
+    if comparison_intended is not None:
+        saved_intended = obj.intended
+        saved_actual = obj.actual
+        obj.intended = comparison_intended
+        obj.actual = comparison_actual
+    
     compliance_details = compliance_method(obj)
+    
+    # Restore full configs so the model stores unstripped versions
+    if comparison_intended is not None:
+        obj.intended = saved_intended
+        obj.actual = saved_actual
 
     logger.warning(f"=== COMPLIANCE RESULT: compliance={compliance_details.get('compliance')}, missing_len={len(compliance_details.get('missing', ''))}, extra_len={len(compliance_details.get('extra', ''))} ===")
     logger.warning(f"=== MISSING: {compliance_details.get('missing', '')[:200]} ===")
