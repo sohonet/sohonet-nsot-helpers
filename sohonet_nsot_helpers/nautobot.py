@@ -62,15 +62,17 @@ def compliance_stanza_extract(config_text, stanza_configs):
                     if any(cr.search(lines[i]) for cr in child_res):
                         matched_children.append(child_stripped)
                     i += 1
+                if header_idx not in extracted:
+                    extracted[header_idx] = {"header": header, "children": []}
                 if matched_children:
-                    if header_idx not in extracted:
-                        extracted[header_idx] = {"header": header, "children": []}
                     extracted[header_idx]["children"].extend(matched_children)
                 if i < len(lines) and lines[i].strip() == "!":
                     i += 1
                 continue
             i += 1
     # Build output in original config order
+    if not extracted:
+        return None
     out = []
     for idx in sorted(extracted.keys()):
         out.append(extracted[idx]["header"])
@@ -160,8 +162,12 @@ def sohonet_custom_compliance(obj):
         if isinstance(stanza_config, dict):
             stanza_config = [stanza_config]
         if isinstance(stanza_config, list):
-            obj.actual = compliance_stanza_extract(obj.actual or "", stanza_config)
-            obj.intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            extracted_actual = compliance_stanza_extract(obj.actual or "", stanza_config)
+            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            if extracted_actual is not None:
+                obj.actual = extracted_actual
+            if extracted_intended is not None:
+                obj.intended = extracted_intended
             logger.warning(
                 f"=== AFTER STANZA EXTRACT: intended lines: "
                 f"{len((obj.intended or '').splitlines())}, "
