@@ -15,7 +15,7 @@ def compliance_include(compliance_include_patterns, actual_config):
             included_lines.append(line)
     return included_lines
 
-def compliance_stanza_extract(config_text, stanza_configs, include_empty_parents=False):
+def compliance_stanza_extract(config_text, stanza_configs):
     """
     Extract config stanzas for one or more header/children combos.
     stanza_configs: list of dicts, each with:
@@ -23,10 +23,9 @@ def compliance_stanza_extract(config_text, stanza_configs, include_empty_parents
         "children": list of regex strings matching desired child lines
     Results from all combos are merged in config order.
 
-    include_empty_parents: if True, include matched parent lines even when no
-        children match (useful for intended configs where an empty stanza is
-        meaningful). For actual configs leave this False so that absent children
-        are treated as a fully missing stanza by the diff engine.
+    Returns None when no stanzas match (sentinel: "nothing found").
+    Callers should treat None differently from "" — see sohonet_custom_compliance
+    for the intended handling logic.
     """
     if not config_text or not stanza_configs:
         return config_text or ""
@@ -71,9 +70,6 @@ def compliance_stanza_extract(config_text, stanza_configs, include_empty_parents
                     if header_idx not in extracted:
                         extracted[header_idx] = {"header": header, "children": []}
                     extracted[header_idx]["children"].extend(matched_children)
-                elif include_empty_parents:
-                    if header_idx not in extracted:
-                        extracted[header_idx] = {"header": header, "children": []}
                 if i < len(lines) and lines[i].strip() == "!":
                     i += 1
                 continue
@@ -171,11 +167,15 @@ def sohonet_custom_compliance(obj):
             stanza_config = [stanza_config]
         if isinstance(stanza_config, list):
             extracted_actual = compliance_stanza_extract(obj.actual or "", stanza_config)
-            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config, include_empty_parents=True)
-            if extracted_actual is not None:
-                obj.actual = extracted_actual
-            if extracted_intended is not None:
+            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            if extracted_intended is None:
+                # Nothing in intended matches — nothing to enforce, skip stanza filtering
+                logger.warning("=== STANZA EXTRACT: no intended stanzas matched, skipping stanza filter ===")
+            else:
                 obj.intended = extracted_intended
+                # If actual had no matching stanzas, use "" so the diff engine
+                # treats all intended stanzas as fully missing (correct remediation).
+                obj.actual = extracted_actual if extracted_actual is not None else ""
             logger.warning(
                 f"=== AFTER STANZA EXTRACT: intended lines: "
                 f"{len((obj.intended or '').splitlines())}, "
