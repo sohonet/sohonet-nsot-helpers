@@ -15,13 +15,18 @@ def compliance_include(compliance_include_patterns, actual_config):
             included_lines.append(line)
     return included_lines
 
-def compliance_stanza_extract(config_text, stanza_configs):
+def compliance_stanza_extract(config_text, stanza_configs, include_empty_parents=False):
     """
     Extract config stanzas for one or more header/children combos.
     stanza_configs: list of dicts, each with:
         "header":   regex string matching stanza headers
         "children": list of regex strings matching desired child lines
     Results from all combos are merged in config order.
+
+    include_empty_parents: if True, include matched parent lines even when no
+        children match (useful for intended configs where an empty stanza is
+        meaningful). For actual configs leave this False so that absent children
+        are treated as a fully missing stanza by the diff engine.
     """
     if not config_text or not stanza_configs:
         return config_text or ""
@@ -62,10 +67,13 @@ def compliance_stanza_extract(config_text, stanza_configs):
                     if any(cr.search(lines[i]) for cr in child_res):
                         matched_children.append(child_stripped)
                     i += 1
-                if header_idx not in extracted:
-                    extracted[header_idx] = {"header": header, "children": []}
                 if matched_children:
+                    if header_idx not in extracted:
+                        extracted[header_idx] = {"header": header, "children": []}
                     extracted[header_idx]["children"].extend(matched_children)
+                elif include_empty_parents:
+                    if header_idx not in extracted:
+                        extracted[header_idx] = {"header": header, "children": []}
                 if i < len(lines) and lines[i].strip() == "!":
                     i += 1
                 continue
@@ -163,7 +171,7 @@ def sohonet_custom_compliance(obj):
             stanza_config = [stanza_config]
         if isinstance(stanza_config, list):
             extracted_actual = compliance_stanza_extract(obj.actual or "", stanza_config)
-            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config, include_empty_parents=True)
             if extracted_actual is not None:
                 obj.actual = extracted_actual
             if extracted_intended is not None:
