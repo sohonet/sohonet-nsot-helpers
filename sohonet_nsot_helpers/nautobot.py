@@ -152,8 +152,9 @@ def sohonet_custom_compliance(obj):
             'extra': '',
         }
 
-    # Store original intended before any modifications
+    # Store original configs before any modifications
     original_intended = obj.intended
+    original_actual = obj.actual
 
     # Track any existence-only check failures
     existence_missing_lines = []
@@ -230,26 +231,25 @@ def sohonet_custom_compliance(obj):
     compliance_method = FUNC_MAPPER["cli"]
     # If existence matching stripped lines, use stripped versions for comparison only
     if comparison_intended is not None:
-        saved_intended = obj.intended
-        saved_actual = obj.actual
         obj.intended = comparison_intended
         obj.actual = comparison_actual
-    
+
     compliance_details = compliance_method(obj)
-    
-    # Restore full configs so the model stores unstripped versions
-    if comparison_intended is not None:
-        obj.intended = saved_intended
-        obj.actual = saved_actual
+
+    # Always restore original configs so the model stores the pre-filter values.
+    # This is critical: if nautobot_golden_config re-runs the diff for "Generate Remediation"
+    # using stored actual/intended, we need the originals so sohonet_custom_compliance can
+    # apply stanza/include/exclude filtering again on the next call. Without this restore,
+    # the stored intended/actual would be the filtered versions and any fresh actual fetch
+    # would produce wrong remediation (e.g. "no interface persona access" from unfiltered diff).
+    obj.intended = original_intended
+    obj.actual = original_actual
 
     logger.warning(f"=== COMPLIANCE RESULT: compliance={compliance_details.get('compliance')}, missing_len={len(compliance_details.get('missing', ''))}, extra_len={len(compliance_details.get('extra', ''))} ===")
     logger.warning(f"=== MISSING: {compliance_details.get('missing', '')[:200]} ===")
     logger.warning(f"=== EXTRA: {compliance_details.get('extra', '')[:200]} ===")
 
-    # Restore obj.intended for config-sync
-    # Only restore original intended if stanza extract was NOT applied
-    # if not stanza_config:
-    #    obj.intended = original_intended
+    # Note: obj.intended and obj.actual are restored above unconditionally.
 
     # Merge existence-check failures into the result
     if existence_missing_lines:
