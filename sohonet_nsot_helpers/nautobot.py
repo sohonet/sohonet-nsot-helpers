@@ -246,13 +246,10 @@ def sohonet_custom_compliance(obj):
     logger.warning(f"=== MISSING: {compliance_details.get('missing', '')[:200]} ===")
     logger.warning(f"=== EXTRA: {compliance_details.get('extra', '')[:200]} ===")
 
-    # Restore obj.intended for config-sync
-    # Filtering (stanza extraction, include, exclude) modifies obj.intended for compliance
-    # computation only. If the filtered value is stored in DB, config-sync reads it as
-    # intended_config and diffs it against the full live actual — generating wrong remediation.
-    # Restoring original_intended ensures comp.intended in DB = full intended section.
-    # The compliance result (missing/extra) has already been computed using filtered versions.
-    obj.intended = original_intended
+    # NOTE: obj.intended is intentionally left as the filtered value (stanza-extracted,
+    # include/exclude filtered). This is stored in DB as comp.intended and sent via webhook
+    # as intended_config. The config-sync webapp uses comp.intended (not live actual) to
+    # generate remediation, so both actual and intended must be the filtered versions.
 
     # Merge existence-check failures into the result
     if existence_missing_lines:
