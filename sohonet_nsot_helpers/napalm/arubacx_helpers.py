@@ -7,6 +7,29 @@ from urllib.parse import unquote
 _log = logging.getLogger(__name__)
 
 
+def aoscx_close(self):
+    """
+    Safe replacement for AOSCXDriver.close().
+
+    The stock close() calls session.logout(**self.session_info) then
+    self.device.disconnect(). If open() failed before the REST login
+    completed, session_info is {} and logout(**{}) raises KeyError,
+    killing the billiard worker process. Guard both calls.
+    """
+    if self.session_info.get('s') and self.session_info.get('url'):
+        try:
+            from pyaoscx import session
+            session.logout(**self.session_info)
+        except Exception:
+            pass
+    self.isAlive = False
+    if self.optional_args.get('use_cli') and hasattr(self, 'device'):
+        try:
+            self.device.disconnect()
+        except Exception:
+            pass
+
+
 def aoscx_get_interfaces(self):
     """
     Monkeypatch for AOSCXDriver.get_interfaces.
