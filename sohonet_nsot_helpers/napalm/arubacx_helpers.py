@@ -178,3 +178,30 @@ def aoscx_get_interfaces(self):
             pass
 
     return interfaces_return
+
+
+def aoscx_get_interfaces_ip(self):
+    """
+    Thin wrapper around AOSCXDriver.get_interfaces_ip that normalises VLAN
+    interface names to match what aoscx_get_interfaces produces.
+
+    The stock driver returns 'vlan707'; Nautobot stores 'vlan 707'.  Without
+    normalisation the management-IP lookup in the nornir job misses the VLAN
+    interface and the IP / management flag are never written.
+    """
+    from napalm_aoscx.aoscx import AOSCXDriver as _Base
+    raw = _Base.get_interfaces_ip(self)
+    result = {}
+    for name, data in raw.items():
+        normalised = re.sub(r'^(vlan)(\d+)$', r'\1 \2', name, flags=re.IGNORECASE)
+        result[normalised] = data
+    return result
+
+
+# Apply the safe close() patch at import time so callers don't need to
+# import or reference aoscx_close explicitly (avoids linter stripping).
+try:
+    from napalm_aoscx.aoscx import AOSCXDriver as _AOSCXDriver
+    _AOSCXDriver.close = aoscx_close
+except ImportError:
+    pass
