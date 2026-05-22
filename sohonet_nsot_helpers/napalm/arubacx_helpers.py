@@ -1,7 +1,11 @@
 # sohonet_nsot_helpers/napalm/arubacx_helpers.py
 
+import logging
 import re
 from urllib.parse import unquote
+
+_log = logging.getLogger(__name__)
+_hw_info_logged = False  # log hw_intf_info once per driver instance load
 
 
 def aoscx_get_interfaces(self):
@@ -29,11 +33,19 @@ def aoscx_get_interfaces(self):
     interfaces_return = {}
     interface_list = pyaoscx_interface.get_all_interface_names(**self.session_info)
 
+    global _hw_info_logged
     for name in interface_list:
         iface = pyaoscx_interface.get_interface(name, **self.session_info)
         description = iface.get('description', '') or ''
         hw_info = iface.get('hw_intf_info', {}) or {}
         speed = hw_info.get('max_speed', 0) if isinstance(hw_info, dict) else 0
+
+        # One-time debug: log the full hw_intf_info for the first physical port
+        # so we can verify which fields carry port capability vs negotiated speed.
+        # Remove once the speed detection is confirmed correct.
+        if not _hw_info_logged and re.match(r'^\d+/\d+/\d+', name):
+            _log.warning('DEBUG hw_intf_info for %s: %r', name, hw_info)
+            _hw_info_logged = True
         try:
             mtu = int(iface.get('mtu') or 0)
         except (ValueError, TypeError):
