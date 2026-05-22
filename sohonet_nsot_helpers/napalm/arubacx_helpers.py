@@ -98,8 +98,9 @@ def aoscx_get_interfaces(self):
             'type': None,
         }
 
-    # OOB management port: try REST first, fall back to CLI.
-    # pyaoscx returns 404 for 'mgmt' on many firmware versions.
+    # OOB management port: try REST first, fall back to CLI, then unconditional stub.
+    # pyaoscx returns 404 for 'mgmt' on most firmware versions; 'show interface mgmt'
+    # also returns empty on some firmware.  The port always exists — add it regardless.
     if 'mgmt' not in interfaces_return:
         _mgmt_added = False
         try:
@@ -124,6 +125,7 @@ def aoscx_get_interfaces(self):
                 'children': [],
                 've_children': [],
                 'type': None,
+                'management': True,
             }
             _mgmt_added = True
         except Exception:
@@ -148,8 +150,26 @@ def aoscx_get_interfaces(self):
                         'type': None,
                         'management': True,
                     }
+                    _mgmt_added = True
             except Exception as e:
                 _log.warning('DEBUG show interface mgmt failed: %s', e)
+
+        # Last resort: the OOB port always exists on AOS-CX; add a stub so it
+        # isn't deleted from Nautobot if neither REST nor CLI returned data.
+        if not _mgmt_added:
+            interfaces_return['mgmt'] = {
+                'is_up': False,
+                'is_enabled': True,
+                'description': '',
+                'last_flapped': -1.0,
+                'speed': 0,
+                'mtu': 0,
+                'mac_address': '',
+                'children': [],
+                've_children': [],
+                'type': None,
+                'management': True,
+            }
 
     # Normalise VLAN interface names: 'vlan707' → 'vlan 707'
     for old in list(interfaces_return):
