@@ -75,6 +75,8 @@ def aoscx_get_interfaces(self):
         except (ValueError, TypeError):
             mtu = 0
         mac = (hw_info.get('mac_addr') or '') if isinstance(hw_info, dict) else ''
+        if speed == 0 and isinstance(hw_info, dict) and hw_info:
+            _log.warning('DEBUG hw_intf_info for %s (speed=0): %s', name, hw_info)
 
         interfaces_return[name] = {
             'is_up': iface.get('link_state') == 'up',
@@ -123,8 +125,9 @@ def aoscx_get_interfaces(self):
         if not _mgmt_added and hasattr(self, 'device'):
             try:
                 out = self.device.send_command('show interface mgmt')
+                _log.warning('DEBUG show interface mgmt output:\n%s', out)
                 if out and 'invalid' not in out.lower():
-                    is_up = bool(re.search(r'\bis up\b', out, re.IGNORECASE))
+                    is_up = bool(re.search(r'Admin State\s*:\s*up', out, re.IGNORECASE))
                     interfaces_return['mgmt'] = {
                         'is_up': is_up,
                         'is_enabled': True,
@@ -136,9 +139,10 @@ def aoscx_get_interfaces(self):
                         'children': [],
                         've_children': [],
                         'type': None,
+                        'management': True,
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning('DEBUG show interface mgmt failed: %s', e)
 
     # Normalise VLAN interface names: 'vlan707' → 'vlan 707'
     for old in list(interfaces_return):
@@ -172,6 +176,7 @@ def aoscx_get_interfaces(self):
     if hasattr(self, 'device'):
         try:
             brief = self.device.send_command('show interface brief')
+            _log.warning('DEBUG show interface brief output:\n%s', brief)
             for line in brief.splitlines():
                 m = re.match(r'^\s*(lag\d+)\s', line, re.IGNORECASE)
                 if m:
@@ -189,13 +194,14 @@ def aoscx_get_interfaces(self):
                             've_children': [],
                             'type': None,
                         }
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning('DEBUG show interface brief failed: %s', e)
 
         try:
             lacp_out = self.device.send_command('show lacp interfaces')
+            _log.warning('DEBUG show lacp interfaces output:\n%s', lacp_out)
             for line in lacp_out.splitlines():
-                m = re.match(r'^(\d+/\d+/\d+)\s+\w+\s+(lag\d+)', line.strip())
+                m = re.match(r'^(\d+/\d+/\d+)\s+(lag\d+)', line.strip())
                 if m:
                     port, lag = m.group(1), m.group(2)
                     if lag not in interfaces_return:
@@ -212,8 +218,8 @@ def aoscx_get_interfaces(self):
                             'type': None,
                         }
                     interfaces_return[lag]['children'].append(port)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning('DEBUG show lacp interfaces failed: %s', e)
 
         # For any LAG still lacking children, try 'show interface <lag>'
         for lag in [n for n in interfaces_return if re.match(r'^lag\d+$', n, re.IGNORECASE)]:
