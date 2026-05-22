@@ -5,7 +5,6 @@ import re
 from urllib.parse import unquote
 
 _log = logging.getLogger(__name__)
-_hw_info_logged = False  # log hw_intf_info once per driver instance load
 
 
 def aoscx_get_interfaces(self):
@@ -23,29 +22,31 @@ def aoscx_get_interfaces(self):
          so member port names can be read from the URI keys/values. Covers
          both LACP and static LAGs on firmware that stores LAG membership
          in the Interface table (v10.04+).
-      2. CLI fallback via 'show lacp interfaces' — for firmware versions
-         where LAGs are in the Port table (v1 API) and the REST approach
-         returns no members. Only covers LACP LAGs, but static LAGs are
-         very rare in this environment.
+      2. CLI fallback via 'show lacp interfaces' — always runs; creates
+         LAG entries for any LAGs discovered in CLI that were absent from
+         the Interface table (v1 API firmware stores LAGs in Port table).
+
+    VLAN interface naming:
+      Aruba CX returns 'vlan707'; Nautobot stores 'vlan 707'. Names are
+      normalised before returning.
+
+    OOB management port:
+      pyaoscx get_all_interface_names() omits 'mgmt'. It is fetched
+      explicitly and added to the result.
     """
     from pyaoscx import interface as pyaoscx_interface
 
     interfaces_return = {}
     interface_list = pyaoscx_interface.get_all_interface_names(**self.session_info)
 
-    global _hw_info_logged
     for name in interface_list:
         iface = pyaoscx_interface.get_interface(name, **self.session_info)
         description = iface.get('description', '') or ''
         hw_info = iface.get('hw_intf_info', {}) or {}
-        speed = hw_info.get('max_speed', 0) if isinstance(hw_info, dict) else 0
-
-        # One-time debug: log the full hw_intf_info for the first physical port
-        # so we can verify which fields carry port capability vs negotiated speed.
-        # Remove once the speed detection is confirmed correct.
-        if not _hw_info_logged and re.match(r'^\d+/\d+/\d+', name):
-            _log.warning('DEBUG hw_intf_info for %s: %r', name, hw_info)
-            _hw_info_logged = True
+        try:
+            speed = int(hw_info.get('max_speed') or 0) if isinstance(hw_info, dict) else 0
+        except (ValueError, TypeError):
+            speed = 0
         try:
             mtu = int(iface.get('mtu') or 0)
         except (ValueError, TypeError):
@@ -65,6 +66,46 @@ def aoscx_get_interfaces(self):
             'type': None,
         }
 
+    # Explicitly fetch OOB management port — omitted by get_all_interface_names().
+    if 'mgmt' not in interfaces_return:
+        try:
+            iface = pyaoscx_interface.get_interface('mgmt', **self.session_info)
+            description = iface.get('description', '') or ''
+            hw_info = iface.get('hw_intf_info', {}) or {}
+            try:
+                speed = int(hw_info.get('max_speed') or 0) if isinstance(hw_info, dict) else 0
+            except (ValueError, TypeError):
+                speed = 0
+            try:
+                mtu = int(iface.get('mtu') or 0)
+            except (ValueError, TypeError):
+                mtu = 0
+            mac = (hw_info.get('mac_addr') or '') if isinstance(hw_info, dict) else ''
+            interfaces_return['mgmt'] = {
+                'is_up': iface.get('link_state') == 'up',
+                'is_enabled': iface.get('admin_state') == 'up',
+                'description': description,
+                'last_flapped': -1.0,
+                'speed': speed,
+                'mtu': mtu,
+                'mac_address': mac,
+                'children': [],
+                've_children': [],
+                'type': None,
+            }
+        except Exception:
+            pass
+
+    # Normalise VLAN interface names: 'vlan707' → 'vlan 707'
+    vlan_renames = {
+        name: re.sub(r'^(vlan)(\d+)$', r'\1 \2', name, flags=re.IGNORECASE)
+        for name in list(interfaces_return)
+        if re.match(r'^vlan\d+$', name, re.IGNORECASE)
+    }
+    for old, new in vlan_renames.items():
+        if old != new:
+            interfaces_return[new] = interfaces_return.pop(old)
+
     lag_names = [n for n in interfaces_return if re.match(r'^lag\d+$', n, re.IGNORECASE)]
 
     # --- REST API: depth=1 expands the 'interfaces' reference so we can
@@ -82,22 +123,34 @@ def aoscx_get_interfaces(self):
         if children:
             interfaces_return[lag_name]['children'] = sorted(children)
 
-    # --- CLI fallback: for any LAG that REST returned no members for,
-    # parse 'show lacp interfaces'. Requires the open netmiko session
-    # (self.device), which is always present since use_cli=True is forced.
-    lags_needing_cli = [n for n in lag_names if not interfaces_return[n]['children']]
-    if lags_needing_cli and hasattr(self, 'device'):
+    # --- CLI fallback: always run to catch LAGs absent from the Interface
+    # table (v1 API firmware stores them in the Port table instead).
+    # Creates a new entry in interfaces_return when a LAG is found in CLI
+    # output but was never returned by get_all_interface_names().
+    if hasattr(self, 'device'):
         try:
             output = self.device.send_command('show lacp interfaces')
             for line in output.splitlines():
                 m = re.match(r'^(\d+/\d+/\d+)\s+\w+\s+(lag\d+)', line.strip())
                 if m:
                     port, lag = m.group(1), m.group(2)
-                    if lag in interfaces_return:
-                        interfaces_return[lag]['children'].append(port)
-            for lag in lag_names:
-                if interfaces_return[lag]['children']:
-                    interfaces_return[lag]['children'] = sorted(interfaces_return[lag]['children'])
+                    if lag not in interfaces_return:
+                        interfaces_return[lag] = {
+                            'is_up': False,
+                            'is_enabled': True,
+                            'description': '',
+                            'last_flapped': -1.0,
+                            'speed': 0,
+                            'mtu': 0,
+                            'mac_address': '',
+                            'children': [],
+                            've_children': [],
+                            'type': None,
+                        }
+                    interfaces_return[lag]['children'].append(port)
+            for lag in list(interfaces_return):
+                if re.match(r'^lag\d+$', lag, re.IGNORECASE) and interfaces_return[lag]['children']:
+                    interfaces_return[lag]['children'] = sorted(set(interfaces_return[lag]['children']))
         except Exception:
             pass
 
