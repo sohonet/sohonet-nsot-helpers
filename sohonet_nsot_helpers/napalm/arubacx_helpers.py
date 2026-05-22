@@ -154,22 +154,6 @@ def aoscx_get_interfaces(self):
             except Exception as e:
                 _log.warning('DEBUG show interface mgmt failed: %s', e)
 
-        # Last resort: the OOB port always exists on AOS-CX; add a stub so it
-        # isn't deleted from Nautobot if neither REST nor CLI returned data.
-        if not _mgmt_added:
-            interfaces_return['mgmt'] = {
-                'is_up': False,
-                'is_enabled': True,
-                'description': '',
-                'last_flapped': -1.0,
-                'speed': 0,
-                'mtu': 0,
-                'mac_address': '',
-                'children': [],
-                've_children': [],
-                'type': None,
-                'management': True,
-            }
 
     # Normalise VLAN interface names: 'vlan707' → 'vlan 707'
     for old in list(interfaces_return):
