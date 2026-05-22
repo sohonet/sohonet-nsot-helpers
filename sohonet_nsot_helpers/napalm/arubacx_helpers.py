@@ -67,7 +67,14 @@ def aoscx_get_interfaces(self):
         description = iface.get('description', '') or ''
         hw_info = iface.get('hw_intf_info', {}) or {}
         try:
-            speed = int(hw_info.get('max_speed') or 0) if isinstance(hw_info, dict) else 0
+            # selftest_speed reflects the installed transceiver's speed (e.g. 25G SFP28
+            # in a 50G-capable port); max_speed reflects the port's hardware ceiling.
+            # Use selftest_speed when present so interface_type() maps to the right slug.
+            raw_speed = (
+                hw_info.get('selftest_speed') or hw_info.get('max_speed')
+                if isinstance(hw_info, dict) else None
+            )
+            speed = int(raw_speed or 0)
         except (ValueError, TypeError):
             speed = 0
         try:
