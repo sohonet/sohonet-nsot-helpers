@@ -180,17 +180,22 @@ def aoscx_get_interfaces(self):
     return interfaces_return
 
 
+# Saved before patching — prevents infinite recursion when aoscx_get_interfaces_ip
+# calls the original; if we called AOSCXDriver.get_interfaces_ip(self) after patching
+# it would call ourselves again.
+_orig_get_interfaces_ip = None
+
+
 def aoscx_get_interfaces_ip(self):
     """
-    Thin wrapper around AOSCXDriver.get_interfaces_ip that normalises VLAN
+    Replacement for AOSCXDriver.get_interfaces_ip that normalises VLAN
     interface names to match what aoscx_get_interfaces produces.
 
     The stock driver returns 'vlan707'; Nautobot stores 'vlan 707'.  Without
     normalisation the management-IP lookup in the nornir job misses the VLAN
     interface and the IP / management flag are never written.
     """
-    from napalm_aoscx.aoscx import AOSCXDriver as _Base
-    raw = _Base.get_interfaces_ip(self)
+    raw = _orig_get_interfaces_ip(self)
     result = {}
     for name, data in raw.items():
         normalised = re.sub(r'^(vlan)(\d+)$', r'\1 \2', name, flags=re.IGNORECASE)
@@ -198,10 +203,12 @@ def aoscx_get_interfaces_ip(self):
     return result
 
 
-# Apply the safe close() patch at import time so callers don't need to
-# import or reference aoscx_close explicitly (avoids linter stripping).
+# Apply patches at import time.  Save originals BEFORE patching so our
+# wrappers can call them without recursing into themselves.
 try:
     from napalm_aoscx.aoscx import AOSCXDriver as _AOSCXDriver
+    _orig_get_interfaces_ip = _AOSCXDriver.get_interfaces_ip
     _AOSCXDriver.close = aoscx_close
+    _AOSCXDriver.get_interfaces_ip = aoscx_get_interfaces_ip
 except ImportError:
     pass
