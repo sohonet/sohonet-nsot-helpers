@@ -307,3 +307,29 @@ try:
     _AOSCXDriver.get_interfaces_ip = aoscx_get_interfaces_ip
 except ImportError:
     pass
+
+# pyaoscx.port._get_port_v1 hard-codes timeout=2, which is too short for
+# slower devices or higher-latency VPN paths. Replace it with timeout=30.
+try:
+    import logging as _logging
+    from pyaoscx import common_ops as _pyaoscx_common_ops
+    import pyaoscx.port as _pyaoscx_port
+
+    def _get_port_v1_patched(port_name, depth=0, selector=None, **kwargs):
+        if selector not in ['configuration', 'status', 'statistics', None]:
+            raise Exception("ERROR: Selector should be 'configuration', 'status', or 'statistics'")
+        payload = {"depth": depth, "selector": selector}
+        port_name_percents = _pyaoscx_common_ops._replace_special_characters(port_name)
+        target_url = kwargs["url"] + "system/ports/%s" % port_name_percents
+        response = kwargs["s"].get(target_url, verify=False, params=payload, timeout=30)
+        port_name = _pyaoscx_common_ops._replace_percents(port_name_percents)
+        if not _pyaoscx_common_ops._response_ok(response, "GET"):
+            _logging.warning("FAIL: Getting Port table entry '%s' failed with status code %d: %s"
+                             % (port_name, response.status_code, response.text))
+            return {}
+        _logging.info("SUCCESS: Getting Port table entry '%s' succeeded" % port_name)
+        return response.json()
+
+    _pyaoscx_port._get_port_v1 = _get_port_v1_patched
+except (ImportError, AttributeError):
+    pass
