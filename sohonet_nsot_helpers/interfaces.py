@@ -44,6 +44,10 @@ def interface_type(interface, speed, interface_type=False):
 
     if speed == 1000:
         return {'name': '1000BASE-T (1GE)', 'slug': '1000base-t'}
+    elif speed == 2500:
+        return {'name': '2.5GBASE-T (2.5GE)', 'slug': '2.5gbase-t'}
+    elif speed == 5000:
+        return {'name': '5GBASE-T (5GE)', 'slug': '5gbase-t'}
     elif speed == 10000:
         return {'name': 'SFP+ (10GE)', 'slug': '10gbase-x-sfpp'}
     elif speed == 25000:
