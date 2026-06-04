@@ -45,8 +45,8 @@ def interface_type(interface, speed, interface_type=False):
     if re.match(r'^ble$|^bluetooth$', interface.lower()):
         return {'name': 'IEEE 802.15.1 (Bluetooth)', 'slug': 'ieee802.15.1'}
 
-    # NetIron, Arista, MRV LAGs
-    if re.match(r'^lag\d+|^port-channel\d+|^t\d+|^trk\d+', interface.lower()):
+    # NetIron, Arista, MRV, Aruba CX LAGs (Aruba normalises to 'lag 10' with space)
+    if re.match(r'^lag\s?\d+|^port-channel\d+|^t\d+|^trk\d+', interface.lower()):
         return {'name': 'Link Aggregation Group (LAG)', 'slug': 'lag'}
 
     if speed == 1000:
