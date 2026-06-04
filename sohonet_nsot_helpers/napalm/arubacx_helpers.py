@@ -256,6 +256,13 @@ def aoscx_get_interfaces(self):
             if re.match(r'^lag\d+$', lag, re.IGNORECASE) and interfaces_return[lag]['children']:
                 interfaces_return[lag]['children'] = sorted(set(interfaces_return[lag]['children']))
 
+    # Normalise LAG interface names: 'lag10' → 'lag 10' (Nautobot stores with space)
+    for old in list(interfaces_return):
+        if re.match(r'^lag\d+$', old, re.IGNORECASE):
+            new = re.sub(r'^(lag)(\d+)$', r'\1 \2', old, flags=re.IGNORECASE)
+            if old != new:
+                interfaces_return[new] = interfaces_return.pop(old)
+
     return interfaces_return
 
 
