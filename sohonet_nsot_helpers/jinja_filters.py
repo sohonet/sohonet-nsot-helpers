@@ -318,23 +318,26 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
         }
     }
 
-    # Round down to nearest bandwidth value
-    if bandwidth not in bandwidth_params.keys():
-        bandwidth_rounded_down_to_nearest_1000 = math.floor(bandwidth / 1000) * 1000
-        bandwidth_rounded_down_to_nearest_100 = math.floor(bandwidth / 100) * 100
+    def nearest_bandwidth_key(value):
+        ''' round a bandwidth down to the nearest value present in bandwidth_params '''
+        if value in bandwidth_params:
+            return value
+        rounded_down_to_nearest_1000 = math.floor(value / 1000) * 1000
+        rounded_down_to_nearest_100 = math.floor(value / 100) * 100
         # 10000 is max bandwidth in bandwidth_params
-        if bandwidth > 10000:
-            bandwidth = 10000
+        if value > 10000:
+            return 10000
         # Check thousands
-        elif bandwidth_rounded_down_to_nearest_1000 and bandwidth_rounded_down_to_nearest_1000 in bandwidth_params.keys(
-        ):
-            bandwidth = bandwidth_rounded_down_to_nearest_1000
+        if rounded_down_to_nearest_1000 and rounded_down_to_nearest_1000 in bandwidth_params:
+            return rounded_down_to_nearest_1000
         # Check hundreds
-        elif bandwidth_rounded_down_to_nearest_100 and bandwidth_rounded_down_to_nearest_100 in bandwidth_params.keys():
-            bandwidth = bandwidth_rounded_down_to_nearest_100
+        if rounded_down_to_nearest_100 and rounded_down_to_nearest_100 in bandwidth_params:
+            return rounded_down_to_nearest_100
         # Only remaining value is 50
-        else:
-            bandwidth = 50
+        return 50
+
+    # Round down to nearest bandwidth value
+    bandwidth = nearest_bandwidth_key(bandwidth)
 
     shaping_table = bandwidth_params[bandwidth]
 
@@ -348,6 +351,8 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
         shaping_table['buffersize'] = eir_shaping_table['buffersize']
 
     # If bandwidth is less than max_port_bandwidth, set buffersize to the value for max_port_bandwidth
+    # max_port_bandwidth must also be rounded to a valid key (e.g. 4500 is not in the table)
+    max_port_bandwidth = nearest_bandwidth_key(max_port_bandwidth)
     if bandwidth < max_port_bandwidth:
         max_port_shaping_table = bandwidth_params[max_port_bandwidth]
         shaping_table['buffersize'] = max_port_shaping_table['buffersize']
