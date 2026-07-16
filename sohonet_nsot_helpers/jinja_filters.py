@@ -196,6 +196,13 @@ def adva_shaping_values(bandwidth, max_port_bandwidth, custom_shaping=False, sha
             "ebs": 16,
             "buffersize": 1280
         },
+        2500: {
+            "cir": 2499360000,
+            "eir": 128000,
+            "cbs": 1280,
+            "ebs": 16,
+            "buffersize": 1280
+        },
         2000: {
             "cir": 1999360000,
             "eir": 128000,
@@ -404,6 +411,12 @@ def mrv_shaping_values(bandwidth, custom_shaping=False, shaping_eir=False):
         },
         3000: {
             "cir": "3g",
+            "cbs": "1M",
+            "eir": "128k",
+            "ebs": "64K",
+        },
+        2500: {
+            "cir": "2500m",
             "cbs": "1M",
             "eir": "128k",
             "ebs": "64K",
