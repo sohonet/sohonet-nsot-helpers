@@ -34,10 +34,12 @@ def compliance_stanza_extract(config_text, stanza_configs):
     for cfg in stanza_configs:
         header_pattern = cfg.get("header", "")
         child_patterns = cfg.get("children", [])
+        require_patterns = cfg.get("require", [])
         if header_pattern and child_patterns:
             combos.append({
                 "header_re": re.compile(header_pattern),
                 "child_res": [re.compile(p) for p in child_patterns],
+                "require_res": [re.compile(p) for p in require_patterns],
             })
     if not combos:
         return config_text
@@ -56,6 +58,7 @@ def compliance_stanza_extract(config_text, stanza_configs):
                 header_idx = i
                 i += 1
                 matched_children = []
+                body_lines = []
                 while i < len(lines):
                     child_stripped = lines[i].strip()
                     if child_stripped == "!" or child_stripped == "":
@@ -63,9 +66,18 @@ def compliance_stanza_extract(config_text, stanza_configs):
                     # Check if this line is a header for ANY combo (stanza boundary)
                     if any(c["header_re"].search(child_stripped) for c in combos):
                         break
+                    body_lines.append(lines[i])
                     if any(cr.search(lines[i]) for cr in child_res):
                         matched_children.append(child_stripped)
                     i += 1
+                # `require`: only keep this stanza if every require-pattern is present
+                # in its body. Lets a rule scope to Nautobot-managed interfaces by a
+                # marker (e.g. `description NB-`) and ignore everything else.
+                require_res = combo.get("require_res") or []
+                if require_res and not all(
+                    any(rr.search(bl) for bl in body_lines) for rr in require_res
+                ):
+                    matched_children = []
                 if matched_children:
                     if header_idx not in extracted:
                         extracted[header_idx] = {"header": header, "children": []}
