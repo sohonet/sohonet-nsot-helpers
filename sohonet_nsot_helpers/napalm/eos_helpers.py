@@ -1,4 +1,5 @@
 from nornir_napalm.plugins.tasks import napalm_get, napalm_cli
+import ipaddress
 import json
 import re
 import textfsm
@@ -9,6 +10,8 @@ import napalm.base.helpers
 
 from napalm.eos.eos import EOSDriver
 from pyeapi.eapilib import CommandError
+
+HOST_PREFIX_LENGTH = 32
 
 
 def transform_arista_vlans(vlan_dict):
@@ -265,6 +268,39 @@ def _textfsm_extractor(template, raw_text):
         return textfsm_data
 
 
+def _virtual_ip_prefix_length(ipv4_addresses, address):
+    ''' Prefix length the interface subnet containing address gives a maskless VARP address
+
+    EOS omits the mask on 'ip virtual-router address', but a VARP address is not a host
+    route -- it inherits the mask of the interface subnet it sits in. Assuming /32 attaches
+    is_virtual to a host prefix that the importer then drops as covered by its parent, so
+    the subnet the address really belongs to is never flagged as virtual.
+
+    ipv4_addresses is the interface's {address: {prefix_length, is_virtual}} mapping, so
+    only call this once the interface's real addresses have been recorded. A masked
+    'ip virtual-router address' defines a virtual subnet of its own, so virtual entries are
+    valid donors too -- only host entries are skipped, so an address already recorded as a
+    /32 cannot answer for itself.
+
+    Falls back to /32 when no subnet covers the address, which is the most that can be said
+    for a virtual address on an interface with no matching subnet.
+    '''
+    try:
+        addr = ipaddress.ip_address(address)
+    except ValueError:
+        return HOST_PREFIX_LENGTH
+
+    for existing, details in ipv4_addresses.items():
+        try:
+            network = ipaddress.ip_interface(f"{existing}/{details['prefix_length']}").network
+        except ValueError:
+            continue
+        if network.prefixlen < network.max_prefixlen and addr in network:
+            return network.prefixlen
+
+    return HOST_PREFIX_LENGTH
+
+
 def eos_get_interfaces_ip(self):
     """Updated to also include the VRF name and Interface ACL"""
 
@@ -317,15 +353,20 @@ def eos_get_interfaces_ip(self):
         interfaces_ip[interface_name]["vrf"] = interface_details.get('vrf')
     
     for i in interface_virtual_ips:
-        if i["ipaddress"]:
-            if i["interface"] in interfaces_ip.keys():
-                if i["ipaddress"] not in interfaces_ip[i["interface"]]["ipv4"].keys():
-                    # if there's no subnet specified then it'll be /32
-                    if len(i["ipaddress"].split("/")) == 1:
-                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"]] = {"prefix_length": "32", "is_virtual": True}
-                    else:
-                        interfaces_ip[i["interface"]]["ipv4"][i["ipaddress"].split("/")[0]] = {"prefix_length": i["ipaddress"].split("/")[-1], "is_virtual": True}
-    
+        if not i["ipaddress"] or i["interface"] not in interfaces_ip:
+            continue
+        ipv4_addresses = interfaces_ip[i["interface"]]["ipv4"]
+        address, _, mask = i["ipaddress"].partition("/")
+        if mask:
+            prefix_length = int(mask)
+        elif address not in ipv4_addresses:
+            # EOS omits the mask on 'ip virtual-router address' -- infer it from the
+            # interface subnet the address belongs to.
+            prefix_length = _virtual_ip_prefix_length(ipv4_addresses, address)
+        else:
+            continue
+        ipv4_addresses[address] = {"prefix_length": prefix_length, "is_virtual": True}
+
     for interface_name, interface_details in interfaces_ipv6_out.items():
         ipv6_list = []
         if interface_name not in interfaces_ip.keys():
