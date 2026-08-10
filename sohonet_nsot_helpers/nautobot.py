@@ -63,6 +63,17 @@ def compliance_stanza_extract(config_text, stanza_configs):
                     child_stripped = lines[i].strip()
                     if child_stripped == "!" or child_stripped == "":
                         break
+                    # A stanza also ends at the next un-indented line. Relying on
+                    # the header pattern alone let a stanza run on past sibling
+                    # blocks it didn't happen to match, silently attributing
+                    # their children to it. On AOS-CX `interface persona access`
+                    # follows the last numbered port and carries loop-protect,
+                    # so `interface 1/1/52` absorbed those lines and compliance
+                    # reported loop-protect as extra config on a port that has
+                    # none. Children are always indented, so the first
+                    # un-indented line is the boundary regardless of what it is.
+                    if lines[i][:1] not in (" ", "\t"):
+                        break
                     # Check if this line is a header for ANY combo (stanza boundary)
                     if any(c["header_re"].search(child_stripped) for c in combos):
                         break
