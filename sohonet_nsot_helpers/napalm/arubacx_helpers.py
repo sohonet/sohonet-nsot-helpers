@@ -63,7 +63,7 @@ def aoscx_get_interfaces(self):
     interface_list = pyaoscx_interface.get_all_interface_names(**self.session_info)
 
     for name in interface_list:
-        iface = pyaoscx_interface.get_interface(name, **self.session_info)
+        iface = pyaoscx_interface.get_interface(name, depth=1, **self.session_info)
         description = iface.get('description', '') or ''
         hw_info = iface.get('hw_intf_info', {}) or {}
         try:
@@ -104,7 +104,7 @@ def aoscx_get_interfaces(self):
     if 'mgmt' not in interfaces_return:
         _mgmt_added = False
         try:
-            iface = pyaoscx_interface.get_interface('mgmt', **self.session_info)
+            iface = pyaoscx_interface.get_interface('mgmt', depth=1, **self.session_info)
             hw_info = iface.get('hw_intf_info', {}) or {}
             try:
                 speed = int(hw_info.get('max_speed') or 0) if isinstance(hw_info, dict) else 0
