@@ -38,8 +38,8 @@ def interface_type(interface, speed, interface_type=False):
     if re.match(r'^(ethernet|port-channel)\d+.*\.\d+', interface.lower()):
         return {'name': 'Virtual', 'slug': 'virtual'}
 
-    # Aruba CX: Access persona (access, access-1-1-1-3), UBT tunnel, WAP persona
-    if re.match(r'^access(-\d+)*$|^ubt$|^wap$', interface.lower()):
+    # Aruba CX: Access persona, UBT tunnel, WAP persona
+    if re.match(r'^access(-\d+)?$|^ubt$|^wap$', interface.lower()):
         return {'name': 'Virtual', 'slug': 'virtual'}
     # Aruba CX: Bluetooth / BLE OOB management interface
     if re.match(r'^ble$|^bluetooth$', interface.lower()):
