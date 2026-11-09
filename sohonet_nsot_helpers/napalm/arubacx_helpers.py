@@ -1,10 +1,143 @@
 # sohonet_nsot_helpers/napalm/arubacx_helpers.py
 
 import logging
+import os
 import re
 from urllib.parse import unquote
 
+import requests
+
 _log = logging.getLogger(__name__)
+
+# --- REST timeouts ---------------------------------------------------------
+# pyaoscx 1.0 hard-codes very short timeouts (2-5s, e.g. timeout=3 on every
+# per-interface GET) and makes several calls with no timeout at all (logout,
+# get_all_interface_names, get_system_info, get_product_info). Measured on the
+# estate: per-interface GETs for ports with LLDP/PoE neighbours take ~4s, so the
+# 3s limit fails the whole host; a call with no timeout can hang a Nornir worker
+# thread until Celery's hard time limit. Every pyaoscx session we create
+# enforces a default and a floor instead.
+AOSCX_REST_TIMEOUT = float(os.environ.get("AOSCX_REST_TIMEOUT", "30"))
+AOSCX_REST_MIN_TIMEOUT = float(os.environ.get("AOSCX_REST_MIN_TIMEOUT", "15"))
+# The one bulk interfaces request replaces ~100 small ones; on CX6100s it took
+# 7s idle and >30s while other sessions were busy, so give it its own budget.
+AOSCX_BULK_TIMEOUT = float(os.environ.get("AOSCX_BULK_TIMEOUT", "120"))
+
+# Attributes the SSoT reads. Fetched for every interface in ONE request
+# (GET system/interfaces?depth=2&attributes=...) instead of one depth=1 GET per
+# interface, which costs ~100 sequential requests per switch and is ~100x
+# slower (CX6300: 0.3s vs ~25s; CX6100: 0.9s vs 147s, some ports never answer).
+# depth=2 on the collection returns exactly what depth=1 returns per interface.
+_BULK_ATTRIBUTES = (
+    "name", "description", "admin_state", "admin", "link_state", "mtu", "hw_intf_info", "interfaces", "type",
+    "ip4_address", "ip6_addresses", "ip6_address_link_local", "ip6_autoconfigured_addresses",
+)
+
+
+class _TimeoutSession(requests.Session):
+    """requests.Session that never issues a request without a sane timeout."""
+
+    def request(self, method, url, **kwargs):
+        timeout = kwargs.get("timeout")
+        if timeout is None:
+            kwargs["timeout"] = AOSCX_REST_TIMEOUT
+        elif isinstance(timeout, (int, float)):
+            kwargs["timeout"] = max(timeout, AOSCX_REST_MIN_TIMEOUT)
+        return super().request(method, url, **kwargs)
+
+
+def aoscx_rest_login(base_url, username=None, password=None):
+    """
+    Replacement for pyaoscx.session.login.
+
+    The stock login uses a 5s timeout and calls exit(-1) on any failure. That
+    SystemExit is a BaseException, so Nornir doesn't treat it as a host failure
+    and it can take down the worker; it also hides why the login failed. Raise
+    napalm's ConnectionException with the reason instead.
+    """
+    from napalm.base.exceptions import ConnectionException
+
+    s = _TimeoutSession()
+    try:
+        response = s.post(base_url + "login", data={"username": username, "password": password}, verify=False)
+    except requests.exceptions.RequestException as e:
+        s.close()
+        raise ConnectionException(f"AOS-CX REST login to {base_url} failed: {type(e).__name__}: {e}") from e
+    if response.status_code != 200:
+        s.close()
+        raise ConnectionException(
+            f"AOS-CX REST login to {base_url} failed: HTTP {response.status_code}: {response.text[:200]}"
+        )
+    return s
+
+
+def aoscx_rest_logout(**kwargs):
+    """Replacement for pyaoscx.session.logout: bounded, never raises, always closes the socket pool."""
+    s, url = kwargs.get("s"), kwargs.get("url")
+    if s is None or not url:
+        return False
+    try:
+        return s.post(url + "logout", verify=False, timeout=10).status_code == 200
+    except Exception:
+        return False
+    finally:
+        s.close()
+
+
+def _bulk_interfaces(self):
+    """
+    All interfaces with the attributes the SSoT needs, from ONE REST request.
+
+    Cached on the driver instance so get_interfaces and get_interfaces_ip share
+    it (napalm_get calls them back to back on the same connection).
+    """
+    cached = getattr(self, "_sohonet_bulk_interfaces", None)
+    if cached is not None:
+        return cached
+    try:
+        response = self.session_info["s"].get(
+            self.session_info["url"] + "system/interfaces",
+            params={"depth": 2, "attributes": ",".join(_BULK_ATTRIBUTES)},
+            verify=False,
+            timeout=AOSCX_BULK_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict):
+            raise ValueError(f"unexpected system/interfaces payload type {type(data).__name__}")
+    except (requests.exceptions.HTTPError, ValueError) as e:
+        # The switch rejected the bulk query (as opposed to timing out): fall
+        # back to the old one-GET-per-interface path, now with sane timeouts.
+        _log.warning('AOS-CX bulk interfaces query failed on %s (%s); falling back to per-interface GETs',
+                     getattr(self, 'hostname', '?'), e)
+        from pyaoscx import interface as pyaoscx_interface
+        data = {
+            name: pyaoscx_interface.get_interface(name, depth=1, **self.session_info)
+            for name in pyaoscx_interface.get_all_interface_names(**self.session_info)
+        }
+    self._sohonet_bulk_interfaces = data
+    return data
+
+
+def aoscx_open(self):
+    """
+    Wrapper for AOSCXDriver.open().
+
+    open() logs in to REST first, then opens the SSH (use_cli) session. If SSH
+    fails it raises without logging out of REST, and Nornir never calls close()
+    on a connection that failed to open, so the REST session leaks on the
+    switch until it idles out. AOS-CX caps concurrent REST sessions, so leaked
+    sessions make later logins fail. Log out before re-raising.
+    """
+    self._sohonet_bulk_interfaces = None
+    try:
+        _orig_open(self)
+    except BaseException:
+        if self.session_info:
+            aoscx_rest_logout(**self.session_info)
+            self.session_info = {}
+        self.isAlive = False
+        raise
 
 
 def aoscx_close(self):
@@ -17,11 +150,9 @@ def aoscx_close(self):
     killing the billiard worker process. Guard both calls.
     """
     if self.session_info.get('s') and self.session_info.get('url'):
-        try:
-            from pyaoscx import session
-            session.logout(**self.session_info)
-        except Exception:
-            pass
+        aoscx_rest_logout(**self.session_info)
+    self.session_info = {}
+    self._sohonet_bulk_interfaces = None
     self.isAlive = False
     if self.optional_args.get('use_cli') and hasattr(self, 'device'):
         try:
@@ -60,10 +191,10 @@ def aoscx_get_interfaces(self):
     from pyaoscx import interface as pyaoscx_interface
 
     interfaces_return = {}
-    interface_list = pyaoscx_interface.get_all_interface_names(**self.session_info)
+    bulk = _bulk_interfaces(self)
 
-    for name in interface_list:
-        iface = pyaoscx_interface.get_interface(name, depth=1, **self.session_info)
+    for name, iface in bulk.items():
+        iface = iface or {}
         description = iface.get('description', '') or ''
         hw_info = iface.get('hw_intf_info', {}) or {}
         try:
@@ -83,11 +214,13 @@ def aoscx_get_interfaces(self):
             mtu = 0
         mac = (hw_info.get('mac_addr') or '') if isinstance(hw_info, dict) else ''
         if speed == 0 and isinstance(hw_info, dict) and hw_info:
-            _log.warning('DEBUG hw_intf_info for %s (speed=0): %s', name, hw_info)
+            _log.debug('hw_intf_info for %s (speed=0): %s', name, hw_info)
 
         interfaces_return[name] = {
             'is_up': iface.get('link_state') == 'up',
-            'is_enabled': iface.get('admin_state') == 'up',
+            # LAGs have no admin_state, only the configured 'admin'; without this
+            # fallback every LAG synced as disabled.
+            'is_enabled': (iface.get('admin_state') or iface.get('admin')) == 'up',
             'description': description,
             'last_flapped': -1.0,
             'speed': speed,
@@ -134,7 +267,7 @@ def aoscx_get_interfaces(self):
         if not _mgmt_added and hasattr(self, 'device'):
             try:
                 out = self.device.send_command('show interface mgmt')
-                _log.warning('DEBUG show interface mgmt output:\n%s', out)
+                _log.debug('show interface mgmt output:\n%s', out)
                 if out and 'invalid' not in out.lower():
                     is_up = bool(re.search(r'Admin State\s*:\s*up', out, re.IGNORECASE))
                     interfaces_return['mgmt'] = {
@@ -152,7 +285,7 @@ def aoscx_get_interfaces(self):
                     }
                     _mgmt_added = True
             except Exception as e:
-                _log.warning('DEBUG show interface mgmt failed: %s', e)
+                _log.debug('show interface mgmt failed: %s', e)
 
 
     # Normalise VLAN interface names: 'vlan707' → 'vlan 707'
@@ -162,18 +295,25 @@ def aoscx_get_interfaces(self):
             if old != new:
                 interfaces_return[new] = interfaces_return.pop(old)
 
-    # --- REST API: depth=1 for LAG member discovery (works on v10.04+ firmware
-    # where LAGs are in the Interface table, not the Port table).
+    # --- REST API: LAG member discovery from the bulk payload's 'interfaces'
+    # attribute (v10.04+ firmware keeps LAGs in the Interface table).
     lag_names = [n for n in interfaces_return if re.match(r'^lag\d+$', n, re.IGNORECASE)]
     for lag_name in lag_names:
         try:
-            lag_data = pyaoscx_interface.get_interface(lag_name, depth=1, **self.session_info)
-            interfaces_field = lag_data.get('interfaces', {})
+            interfaces_field = (bulk.get(lag_name) or {}).get('interfaces') or {}
+            # v10.x returns {"1/1/25": "/rest/v10.09/system/interfaces/1%2F1%2F25"};
+            # older payloads were a list of URIs. The member name is the dict key,
+            # or the last URI segment (percent-decoded). Previously the key itself
+            # was split on '/', yielding '25', so REST never found members and
+            # LAG membership depended entirely on the (flaky under load) CLI.
+            entries = (interfaces_field.items() if isinstance(interfaces_field, dict)
+                       else ((None, uri) for uri in interfaces_field))
             children = []
-            for uri in (interfaces_field if isinstance(interfaces_field, list)
-                        else interfaces_field.keys()):
-                port_name = unquote(str(uri).rstrip('/').split('/')[-1])
-                if re.match(r'^\d+/\d+/\d+', port_name):
+            for key, uri in entries:
+                candidates = [key, unquote(str(uri or '').rstrip('/').split('/')[-1])]
+                port_name = next((c for c in candidates
+                                  if c and re.match(r'^\d+/\d+/\d+$', c)), None)
+                if port_name:
                     children.append(port_name)
             if children:
                 interfaces_return[lag_name]['children'] = sorted(children)
@@ -187,7 +327,7 @@ def aoscx_get_interfaces(self):
     if hasattr(self, 'device'):
         try:
             brief = self.device.send_command('show interface brief')
-            _log.warning('DEBUG show interface brief output:\n%s', brief)
+            _log.debug('show interface brief output:\n%s', brief)
             for line in brief.splitlines():
                 m = re.match(r'^\s*(lag\d+)\s', line, re.IGNORECASE)
                 if m:
@@ -206,11 +346,11 @@ def aoscx_get_interfaces(self):
                             'type': None,
                         }
         except Exception as e:
-            _log.warning('DEBUG show interface brief failed: %s', e)
+            _log.debug('show interface brief failed: %s', e)
 
         try:
             lacp_out = self.device.send_command('show lacp interfaces')
-            _log.warning('DEBUG show lacp interfaces output:\n%s', lacp_out)
+            _log.debug('show lacp interfaces output:\n%s', lacp_out)
             for line in lacp_out.splitlines():
                 m = re.match(r'^(\d+/\d+/\d+)\s+(lag\d+)', line.strip())
                 if m:
@@ -230,7 +370,7 @@ def aoscx_get_interfaces(self):
                         }
                     interfaces_return[lag]['children'].append(port)
         except Exception as e:
-            _log.warning('DEBUG show lacp interfaces failed: %s', e)
+            _log.debug('show lacp interfaces failed: %s', e)
 
         # For any LAG still lacking children, try 'show interface <lag>'
         for lag in [n for n in interfaces_return if re.match(r'^lag\d+$', n, re.IGNORECASE)]:
@@ -281,7 +421,7 @@ def aoscx_get_interfaces_ip(self):
     normalisation the management-IP lookup in the nornir job misses the VLAN
     interface and the IP / management flag are never written.
     """
-    raw = _orig_get_interfaces_ip(self)
+    raw = _interfaces_ip_from_bulk(_bulk_interfaces(self))
     result = {}
     for name, data in raw.items():
         normalised = re.sub(r'^(vlan)(\d+)$', r'\1 \2', name, flags=re.IGNORECASE)
@@ -289,13 +429,94 @@ def aoscx_get_interfaces_ip(self):
     return result
 
 
+def aoscx_get_facts(self):
+    """
+    AOSCXDriver.get_facts, reusing the bulk interfaces payload for interface_list.
+
+    The stock version makes an extra un-timed GET system/interfaces just for the
+    names; on loaded CX6100s that single call alone exceeded 30s.
+    """
+    from pyaoscx import system
+    systeminfo = system.get_system_info(**self.session_info)
+    productinfo = system.get_product_info(**self.session_info)
+    return {
+        'uptime': int(systeminfo['boot_time']) / 1000,
+        'vendor': 'Aruba',
+        'os_version': systeminfo['software_info']['build_id'],
+        'serial_number': productinfo['product_info']['serial_number'],
+        'model': productinfo['product_info']['product_name'],
+        'hostname': systeminfo['hostname'],
+        'fqdn': systeminfo['hostname'],
+        'interface_list': list(_bulk_interfaces(self)),
+    }
+
+
+def _split_prefix(address):
+    return address[:address.rfind('/')], int(address[address.rfind('/') + 1:])
+
+
+def _interfaces_ip_from_bulk(bulk):
+    """
+    AOSCXDriver.get_interfaces_ip output, computed from the bulk payload.
+
+    Unlike the stock driver, IPv4 and each IPv6 key are parsed independently.
+    On some firmware 'ip6_addresses' is a URI string pointing at a
+    sub-collection (no IPv6 configured) rather than a dict of addresses; the
+    stock driver iterated that string character by character, raised, and its
+    catch-all skipped the whole interface, IPv4 included, so management VLAN
+    IPs went missing.
+    """
+    result = {}
+    for name, info in bulk.items():
+        info = info or {}
+        entry = {}
+        ip4 = info.get('ip4_address')
+        if isinstance(ip4, str) and '/' in ip4:
+            try:
+                addr, plen = _split_prefix(ip4)
+                entry['ipv4'] = {addr: {'prefix_length': plen}}
+            except ValueError:
+                _log.warning('AOS-CX: could not parse ip4_address %r on %s', ip4, name)
+        ipv6 = {}
+        for key in ('ip6_addresses', 'ip6_address_link_local', 'ip6_autoconfigured_addresses'):
+            value = info.get(key)
+            if not isinstance(value, (dict, list)):
+                continue  # absent, or a URI reference to an empty sub-collection
+            for address in value:
+                try:
+                    addr, plen = _split_prefix(address)
+                    ipv6[addr] = {'prefix_length': plen}
+                except (ValueError, TypeError):
+                    _log.warning('AOS-CX: could not parse %s %r on %s', key, address, name)
+        if ipv6:
+            entry['ipv6'] = ipv6
+        if entry:
+            result[name] = entry
+    return result
+
+
 # Apply patches at import time.  Save originals BEFORE patching so our
 # wrappers can call them without recursing into themselves.
+_orig_open = None
 try:
     from napalm_aoscx.aoscx import AOSCXDriver as _AOSCXDriver
     _orig_get_interfaces_ip = _AOSCXDriver.get_interfaces_ip
+    # Guard against double-patching (module reload) — wrapping our own wrapper recurses.
+    _orig_open = getattr(_AOSCXDriver.open, "_sohonet_orig", _AOSCXDriver.open)
+    aoscx_open._sohonet_orig = _orig_open
+    _AOSCXDriver.open = aoscx_open
     _AOSCXDriver.close = aoscx_close
     _AOSCXDriver.get_interfaces_ip = aoscx_get_interfaces_ip
+    _AOSCXDriver.get_facts = aoscx_get_facts
+except ImportError:
+    pass
+
+# Bounded, exception-raising REST login/logout for every pyaoscx user in this
+# process (the driver calls session.login/logout via the module attribute).
+try:
+    from pyaoscx import session as _pyaoscx_session
+    _pyaoscx_session.login = aoscx_rest_login
+    _pyaoscx_session.logout = aoscx_rest_logout
 except ImportError:
     pass
 
