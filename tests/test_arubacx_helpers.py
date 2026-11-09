@@ -173,3 +173,61 @@ def test_patches_installed():
     assert AOSCXDriver.open is h.aoscx_open
     assert AOSCXDriver.get_facts is h.aoscx_get_facts
     assert session.login is h.aoscx_rest_login
+
+
+def test_persona_without_admin_state_stays_disabled():
+    bulk = dict(BULK, access={"name": "access", "admin": "up", "type": "system", "hw_intf_info": {}})
+    assert h.aoscx_get_interfaces(_driver(bulk))["access"]["is_enabled"] is False
+
+
+class _Resp:
+    def __init__(self, payload):
+        self._p = payload
+
+    def json(self):
+        return self._p
+
+
+@pytest.mark.parametrize("offered,expected", [
+    ({"latest": {}, "v1": {}, "v10.04": {}}, "https://sw/rest/v10.04/"),
+    ({"latest": {}, "v1": {}, "v10.04": {}, "v10.08": {}}, "https://sw/rest/v10.08/"),
+    ({"latest": {}, "v10.09": {}, "v10.10": {}}, None),   # already on v10.09: no change
+    ({"latest": {}, "v1": {}}, None),                      # nothing usable
+])
+def test_negotiate_base_url(monkeypatch, offered, expected):
+    monkeypatch.setattr(h.requests, "get", lambda *a, **k: _Resp(offered))
+    drv = FakeDriver({})
+    drv.base_url = "https://sw/rest/v10.09/"
+    changed = h._negotiate_base_url(drv)
+    assert changed is (expected is not None)
+    assert drv.base_url == (expected or "https://sw/rest/v10.09/")
+
+
+def test_open_retries_with_negotiated_version_on_404(monkeypatch):
+    attempts = []
+
+    def fake_orig_open(self):
+        attempts.append(self.base_url)
+        if self.base_url.endswith("v10.09/"):
+            raise ConnectionException("AOS-CX REST login failed: HTTP 404: 404 page not found")
+        self.session_info = {"s": "S", "url": self.base_url}
+
+    monkeypatch.setattr(h, "_orig_open", fake_orig_open)
+    monkeypatch.setattr(h.requests, "get", lambda *a, **k: _Resp({"v1": {}, "v10.04": {}}))
+    drv = FakeDriver({})
+    drv.base_url = "https://sw/rest/v10.09/"
+    h.aoscx_open(drv)
+    assert attempts == ["https://sw/rest/v10.09/", "https://sw/rest/v10.04/"]
+
+
+def test_rest_only_disables_cli_without_mutating_shared_optional_args(monkeypatch):
+    shared = {"use_cli": True, "ssh_config_file": "x"}
+    seen = []
+    monkeypatch.setattr(h, "_orig_open", lambda self: seen.append(self.optional_args["use_cli"]))
+    drv = FakeDriver({})
+    drv.optional_args = shared
+    with h.rest_only():
+        h.aoscx_open(drv)
+    assert seen == [False]
+    assert shared["use_cli"] is True          # PLUGINS_CONFIG dict untouched
+    assert h._REST_ONLY is False              # restored on exit

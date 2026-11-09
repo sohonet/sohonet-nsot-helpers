@@ -119,19 +119,93 @@ def _bulk_interfaces(self):
     return data
 
 
+# REST-only mode: skip the driver's SSH (use_cli) session. The SSH half of
+# open() costs 5-15s per switch (login, session prep, two warm-up commands)
+# and, for the interface SSoT, adds nothing: across 54 switches / 15 models the
+# REST-only get_interfaces output was identical. It is process-wide because
+# napalm builds the driver for us; jobs flip it with `rest_only()` around their
+# Nornir run (Celery prefork runs one job per process at a time). Drivers used
+# for CLI work (get_config etc.) are unaffected unless a job opts in.
+_REST_ONLY = False
+
+# Highest REST API version the driver is written against; pyaoscx 1.0 routes
+# every non-v1 URL down the same v10.04-compatible path.
+_PREFERRED_REST_VERSION = (10, 9)
+_MIN_REST_VERSION = (10, 4)
+
+
+class rest_only:
+    """Context manager: AOS-CX drivers opened inside it don't open SSH."""
+
+    def __enter__(self):
+        global _REST_ONLY
+        self._prev, _REST_ONLY = _REST_ONLY, True
+        return self
+
+    def __exit__(self, *exc):
+        global _REST_ONLY
+        _REST_ONLY = self._prev
+        return False
+
+
+def _negotiate_base_url(self):
+    """
+    Pick the newest REST version the switch serves, up to v10.09.
+
+    The driver hard-codes /rest/v10.09/; firmware older than 10.09 answers the
+    login with HTTP 404 (seen on JL676A at v10.04 and R8N88A at v10.08), so
+    those switches never synced. GET /rest is unauthenticated and lists the
+    versions on offer. Returns True if base_url changed.
+    """
+    try:
+        offered = requests.get(f"https://{self.hostname}/rest", verify=False, timeout=AOSCX_REST_TIMEOUT).json()
+    except (requests.exceptions.RequestException, ValueError):
+        return False
+    usable = []
+    for name in offered:
+        m = re.match(r'^v(\d+)\.(\d+)$', name)
+        if m:
+            version = (int(m.group(1)), int(m.group(2)))
+            if _MIN_REST_VERSION <= version <= _PREFERRED_REST_VERSION:
+                usable.append(version)
+    if not usable:
+        return False
+    major, minor = max(usable)
+    new_url = "https://{0}/rest/v{1}.{2:02d}/".format(self.hostname, major, minor)
+    if new_url == self.base_url:
+        return False
+    _log.info('AOS-CX %s: REST v%d.%02d not served, using v%d.%02d',
+              self.hostname, *_PREFERRED_REST_VERSION, major, minor)
+    self.base_url = new_url
+    return True
+
+
 def aoscx_open(self):
     """
     Wrapper for AOSCXDriver.open().
 
-    open() logs in to REST first, then opens the SSH (use_cli) session. If SSH
-    fails it raises without logging out of REST, and Nornir never calls close()
-    on a connection that failed to open, so the REST session leaks on the
-    switch until it idles out. AOS-CX caps concurrent REST sessions, so leaked
-    sessions make later logins fail. Log out before re-raising.
+    - REST-only mode (see rest_only) skips the SSH session.
+    - Negotiates the REST API version if the switch doesn't serve v10.09.
+    - open() logs in to REST first, then opens SSH. If SSH fails it raises
+      without logging out of REST, and Nornir never calls close() on a
+      connection that failed to open, so the REST session leaks on the switch
+      until it idles out. AOS-CX caps concurrent REST sessions, so leaked
+      sessions make later logins fail. Log out before re-raising.
     """
+    from napalm.base.exceptions import ConnectionException
+
     self._sohonet_bulk_interfaces = None
+    if _REST_ONLY:
+        # The driver forces use_cli=True in __init__; optional_args may be the
+        # shared dict from PLUGINS_CONFIG, so copy before changing it.
+        self.optional_args = dict(self.optional_args, use_cli=False)
     try:
-        _orig_open(self)
+        try:
+            _orig_open(self)
+        except ConnectionException as e:
+            if "HTTP 404" not in str(e) or not _negotiate_base_url(self):
+                raise
+            _orig_open(self)
     except BaseException:
         if self.session_info:
             aoscx_rest_logout(**self.session_info)
@@ -219,8 +293,11 @@ def aoscx_get_interfaces(self):
         interfaces_return[name] = {
             'is_up': iface.get('link_state') == 'up',
             # LAGs have no admin_state, only the configured 'admin'; without this
-            # fallback every LAG synced as disabled.
-            'is_enabled': (iface.get('admin_state') or iface.get('admin')) == 'up',
+            # fallback every LAG synced as disabled (Nautobot holds 252/254 LAGs
+            # enabled). Limited to LAGs: port-access personas ('access', 'WAP')
+            # also lack admin_state but are held as disabled, so leave them be.
+            'is_enabled': (iface.get('admin_state') == 'up'
+                           or (iface.get('type') == 'lag' and iface.get('admin') == 'up')),
             'description': description,
             'last_flapped': -1.0,
             'speed': speed,
