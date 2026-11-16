@@ -150,3 +150,55 @@ class TestRequirePredicate:
             "interface persona access\n    description NB-managed\n"
         )
         assert compliance_stanza_extract(config, self.RULE) is None
+
+
+class TestKeepHeaders:
+    """Bare intended headers for member-less AOS-CX LAGs.
+
+    A LAG with no members rightly renders as `interface lag 10` with no
+    rate-limit. Dropping that bare header from intended made a switch still
+    carrying the old rate-limit show the whole LAG as extra, and remediation
+    negated it (`no interface lag 10`).
+    """
+
+    INTENDED = (
+        "interface 1/1/1\n    rate-limit broadcast 10000 kbps\n!\n"
+        "interface lag 10\n!\n"
+        "interface lag 20\n!\n"
+    )
+
+    def test_bare_header_dropped_by_default(self):
+        got = compliance_stanza_extract(self.INTENDED, AOSCX_RULE)
+        assert "interface lag 10" not in got
+
+    def test_bare_header_kept_when_listed(self):
+        got = compliance_stanza_extract(
+            self.INTENDED, AOSCX_RULE, keep_headers={"interface lag 10"}
+        )
+        assert got.splitlines() == [
+            "interface 1/1/1",
+            "    rate-limit broadcast 10000 kbps",
+            "interface lag 10",
+        ]
+
+    def test_unlisted_bare_header_still_dropped(self):
+        got = compliance_stanza_extract(
+            self.INTENDED, AOSCX_RULE, keep_headers={"interface lag 10"}
+        )
+        assert "interface lag 20" not in got
+
+    def test_keep_headers_matches_actual_extraction(self):
+        """The hook feeds headers from the extracted actual into the intended pass."""
+        actual = "interface lag 10\n    no shutdown\n    rate-limit broadcast 10000 kbps\n"
+        extracted_actual = compliance_stanza_extract(actual, AOSCX_RULE)
+        headers = {l for l in extracted_actual.splitlines() if l[:1] not in (" ", "\t")}
+        got = compliance_stanza_extract(self.INTENDED, AOSCX_RULE, keep_headers=headers)
+        assert "interface lag 10" in got.splitlines()
+
+    def test_keep_headers_respects_require(self):
+        rule = [dict(TestRequirePredicate.RULE[0], header=r"^interface\s+lag \d+")]
+        got = compliance_stanza_extract(
+            "interface lag 10\n    description manual\n", rule,
+            keep_headers={"interface lag 10"},
+        )
+        assert got is None
