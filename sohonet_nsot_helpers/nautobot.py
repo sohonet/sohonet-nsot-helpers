@@ -15,13 +15,17 @@ def compliance_include(compliance_include_patterns, actual_config):
             included_lines.append(line)
     return included_lines
 
-def compliance_stanza_extract(config_text, stanza_configs):
+def compliance_stanza_extract(config_text, stanza_configs, keep_headers=None):
     """
     Extract config stanzas for one or more header/children combos.
     stanza_configs: list of dicts, each with:
         "header":   regex string matching stanza headers
         "children": list of regex strings matching desired child lines
     Results from all combos are merged in config order.
+
+    A stanza with no matching children is normally dropped. keep_headers is an
+    optional collection of header lines (stripped) to emit as a bare header
+    anyway — see sohonet_custom_compliance for why intended needs this.
 
     Returns None when no stanzas match (sentinel: "nothing found").
     Callers should treat None differently from "" — see sohonet_custom_compliance
@@ -85,11 +89,12 @@ def compliance_stanza_extract(config_text, stanza_configs):
                 # in its body. Lets a rule scope to Nautobot-managed interfaces by a
                 # marker (e.g. `description NB-`) and ignore everything else.
                 require_res = combo.get("require_res") or []
-                if require_res and not all(
+                required_ok = not require_res or all(
                     any(rr.search(bl) for bl in body_lines) for rr in require_res
-                ):
+                )
+                if not required_ok:
                     matched_children = []
-                if matched_children:
+                if matched_children or (required_ok and keep_headers and header in keep_headers):
                     if header_idx not in extracted:
                         extracted[header_idx] = {"header": header, "children": []}
                     extracted[header_idx]["children"].extend(matched_children)
@@ -190,7 +195,22 @@ def sohonet_custom_compliance(obj):
             stanza_config = [stanza_config]
         if isinstance(stanza_config, list):
             extracted_actual = compliance_stanza_extract(obj.actual or "", stanza_config)
-            extracted_intended = compliance_stanza_extract(obj.intended or "", stanza_config)
+            # An intended stanza with no managed children (e.g. a member-less
+            # AOS-CX LAG that rightly gets no rate-limit) would be dropped, so a
+            # device still carrying managed lines under that header would see
+            # the whole parent as extra and remediation would negate it
+            # (`no interface lag 10`). Keep such bare intended headers when the
+            # same header has managed lines in actual, so the diff becomes
+            # "remove these children" under a parent that stays. Bare headers
+            # with nothing to strip in actual stay dropped, so they never show
+            # up as phantom missing config.
+            actual_headers = {
+                line for line in (extracted_actual or "").splitlines()
+                if line[:1] not in (" ", "\t")
+            }
+            extracted_intended = compliance_stanza_extract(
+                obj.intended or "", stanza_config, keep_headers=actual_headers
+            )
             if extracted_intended is None:
                 # Nothing in intended matches — nothing to enforce, skip stanza filtering
                 logger.warning("=== STANZA EXTRACT: no intended stanzas matched, skipping stanza filter ===")
